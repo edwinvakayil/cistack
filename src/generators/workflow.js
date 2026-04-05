@@ -1,0 +1,670 @@
+'use strict';
+
+const yaml = require('js-yaml');
+
+/**
+ * Takes all detected signals and produces one or more complete GitHub Actions workflow YAML files.
+ */
+class WorkflowGenerator {
+  constructor(config, projectPath) {
+    this.hosting = config.hosting || [];
+    this.frameworks = config.frameworks || [];
+    this.languages = config.languages || [];
+    this.testing = config.testing || [];
+    this.projectPath = projectPath;
+
+    // Convenient accessors
+    this.primaryLang = this.languages[0] || { name: 'JavaScript', packageManager: 'npm', nodeVersion: '20' };
+    this.unitTests = this.testing.filter((t) => t.type === 'unit' && t.confidence > 0.3);
+    this.e2eTests = this.testing.filter((t) => t.type === 'e2e' && t.confidence > 0.3);
+    this.hasDocker = this.hosting.some((h) => h.name === 'Docker');
+    this.primaryHosting = this.hosting.filter((h) => h.name !== 'Docker')[0] || null;
+  }
+
+  generate() {
+    const workflows = [];
+
+    // ── 1. Main CI workflow (lint + test + build on every push / PR) ──────
+    workflows.push({
+      filename: 'ci.yml',
+      content: this._buildCIWorkflow(),
+    });
+
+    // ── 2. Deploy / CD workflow (per hosting platform) ─────────────────────
+    if (this.primaryHosting) {
+      workflows.push({
+        filename: 'deploy.yml',
+        content: this._buildDeployWorkflow(),
+      });
+    }
+
+    // ── 3. Docker image build+push (if Docker detected) ──────────────────
+    if (this.hasDocker) {
+      workflows.push({
+        filename: 'docker.yml',
+        content: this._buildDockerWorkflow(),
+      });
+    }
+
+    // ── 4. Dependency update / security audit ────────────────────────────
+    workflows.push({
+      filename: 'security.yml',
+      content: this._buildSecurityWorkflow(),
+    });
+
+    return workflows;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // CI Workflow
+  // ══════════════════════════════════════════════════════════════════════════
+
+  _buildCIWorkflow() {
+    const lang = this.primaryLang;
+    const jobs = {};
+
+    // ── lint job ──────────────────────────────────────────────────────────
+    const lintSteps = [
+      this._stepCheckout(),
+      ...this._setupSteps(lang),
+      this._stepInstallDeps(lang),
+      this._stepLint(lang),
+    ].filter(Boolean);
+
+    jobs.lint = {
+      name: '🔍 Lint & Format',
+      'runs-on': 'ubuntu-latest',
+      steps: lintSteps,
+    };
+
+    // ── test job ──────────────────────────────────────────────────────────
+    if (this.unitTests.length > 0) {
+      const testMatrix = this._testMatrix(lang);
+      const testSteps = [
+        this._stepCheckout(),
+        ...this._setupSteps(lang),
+        this._stepInstallDeps(lang),
+        ...this._unitTestSteps(lang),
+        this._stepUploadCoverage(),
+      ].filter(Boolean);
+
+      jobs.test = {
+        name: '🧪 Unit Tests',
+        'runs-on': 'ubuntu-latest',
+        ...(testMatrix ? { strategy: testMatrix } : {}),
+        steps: testSteps,
+      };
+    }
+
+    // ── build job ─────────────────────────────────────────────────────────
+    const buildSteps = this._buildSteps(lang);
+    if (buildSteps.length > 0) {
+      jobs.build = {
+        name: '🏗️ Build',
+        'runs-on': 'ubuntu-latest',
+        needs: [
+          'lint',
+          ...(jobs.test ? ['test'] : []),
+        ],
+        steps: [
+          this._stepCheckout(),
+          ...this._setupSteps(lang),
+          this._stepInstallDeps(lang),
+          ...buildSteps,
+          this._stepUploadArtifact(),
+        ].filter(Boolean),
+      };
+    }
+
+    // ── e2e job ───────────────────────────────────────────────────────────
+    if (this.e2eTests.length > 0) {
+      const e2eTest = this.e2eTests[0];
+      jobs['e2e'] = {
+        name: '🎭 E2E Tests',
+        'runs-on': 'ubuntu-latest',
+        needs: ['build'],
+        steps: [
+          this._stepCheckout(),
+          ...this._setupSteps(lang),
+          this._stepInstallDeps(lang),
+          ...(e2eTest.name === 'Playwright' ? [{ name: 'Install Playwright browsers', run: 'npx playwright install --with-deps' }] : []),
+          { name: `Run ${e2eTest.name}`, run: e2eTest.command },
+          {
+            name: 'Upload E2E report',
+            if: 'always()',
+            uses: 'actions/upload-artifact@v4',
+            with: {
+              name: 'e2e-report',
+              path: e2eTest.name === 'Playwright' ? 'playwright-report/' : 'cypress/screenshots/',
+              'retention-days': 7,
+            },
+          },
+        ].filter(Boolean),
+      };
+    }
+
+    const workflow = {
+      name: 'CI',
+      on: {
+        push: { branches: ['main', 'master', 'develop'] },
+        pull_request: { branches: ['main', 'master', 'develop'] },
+      },
+      'concurrency': {
+        group: '${{ github.workflow }}-${{ github.ref }}',
+        'cancel-in-progress': true,
+      },
+      jobs,
+    };
+
+    return this._toYaml(workflow, `# Generated by cistack — https://github.com/cistack\n# CI Pipeline: lint → test → build${this.e2eTests.length > 0 ? ' → e2e' : ''}\n\n`);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Deploy Workflow
+  // ══════════════════════════════════════════════════════════════════════════
+
+  _buildDeployWorkflow() {
+    const h = this.primaryHosting;
+    const lang = this.primaryLang;
+
+    const preDeploySteps = [
+      this._stepCheckout(),
+      ...this._setupSteps(lang),
+      this._stepInstallDeps(lang),
+    ].filter(Boolean);
+
+    const deploySteps = this._hostingDeploySteps(h, lang);
+
+    const jobs = {
+      deploy: {
+        name: `🚀 Deploy → ${h.name}`,
+        'runs-on': 'ubuntu-latest',
+        environment: 'production',
+        steps: [...preDeploySteps, ...deploySteps].filter(Boolean),
+      },
+    };
+
+    const secretsDoc = h.secrets.length > 0
+      ? `# Required secrets: ${h.secrets.join(', ')}\n# Add these at: Settings → Secrets and Variables → Actions\n\n`
+      : '';
+
+    const workflow = {
+      name: `Deploy to ${h.name}`,
+      on: {
+        push: { branches: ['main', 'master'] },
+        workflow_dispatch: {},
+      },
+      jobs,
+    };
+
+    return this._toYaml(workflow, `# Generated by cistack\n# Deploy Pipeline → ${h.name}\n${secretsDoc}`);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Docker Workflow
+  // ══════════════════════════════════════════════════════════════════════════
+
+  _buildDockerWorkflow() {
+    const workflow = {
+      name: 'Docker Build & Push',
+      on: {
+        push: {
+          branches: ['main', 'master'],
+          tags: ['v*.*.*'],
+        },
+        pull_request: { branches: ['main', 'master'] },
+      },
+      env: {
+        REGISTRY: 'ghcr.io',
+        IMAGE_NAME: '${{ github.repository }}',
+      },
+      jobs: {
+        build: {
+          name: '🐳 Build & Push Docker Image',
+          'runs-on': 'ubuntu-latest',
+          permissions: {
+            contents: 'read',
+            packages: 'write',
+          },
+          steps: [
+            this._stepCheckout(),
+            {
+              name: 'Set up Docker Buildx',
+              uses: 'docker/setup-buildx-action@v3',
+            },
+            {
+              name: 'Log in to Container Registry',
+              if: "github.event_name != 'pull_request'",
+              uses: 'docker/login-action@v3',
+              with: {
+                registry: '${{ env.REGISTRY }}',
+                username: '${{ github.actor }}',
+                password: '${{ secrets.GITHUB_TOKEN }}',
+              },
+            },
+            {
+              name: 'Extract metadata',
+              id: 'meta',
+              uses: 'docker/metadata-action@v5',
+              with: {
+                images: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}',
+                tags: [
+                  'type=ref,event=branch',
+                  'type=ref,event=pr',
+                  'type=semver,pattern={{version}}',
+                  'type=semver,pattern={{major}}.{{minor}}',
+                  'type=sha',
+                ].join('\n'),
+              },
+            },
+            {
+              name: 'Build and push',
+              uses: 'docker/build-push-action@v5',
+              with: {
+                context: '.',
+                push: "${{ github.event_name != 'pull_request' }}",
+                tags: '${{ steps.meta.outputs.tags }}',
+                labels: '${{ steps.meta.outputs.labels }}',
+                cache_from: 'type=gha',
+                cache_to: 'type=gha,mode=max',
+              },
+            },
+          ],
+        },
+      },
+    };
+
+    return this._toYaml(workflow, '# Generated by cistack\n# Docker image build and push to GHCR\n\n');
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Security Workflow
+  // ══════════════════════════════════════════════════════════════════════════
+
+  _buildSecurityWorkflow() {
+    const lang = this.primaryLang;
+    const steps = [this._stepCheckout()];
+
+    if (['JavaScript', 'TypeScript'].includes(lang.name)) {
+      steps.push(
+        ...this._setupSteps(lang),
+        this._stepInstallDeps(lang),
+        { name: 'Audit dependencies', run: lang.packageManager === 'npm' ? 'npm audit --audit-level=high' : lang.packageManager === 'yarn' ? 'yarn audit --level high' : 'pnpm audit --audit-level high' },
+      );
+    }
+
+    if (lang.name === 'Python') {
+      steps.push(
+        { name: 'Set up Python', uses: 'actions/setup-python@v5', with: { 'python-version': '3.x' } },
+        { name: 'Install safety', run: 'pip install safety' },
+        { name: 'Run safety check', run: 'safety check' },
+      );
+    }
+
+    // CodeQL analysis
+    steps.push(
+      {
+        name: 'Initialize CodeQL',
+        uses: 'github/codeql-action/init@v3',
+        with: {
+          languages: this._codeQLLanguage(lang.name),
+        },
+      },
+      {
+        name: 'Perform CodeQL Analysis',
+        uses: 'github/codeql-action/analyze@v3',
+      },
+    );
+
+    const workflow = {
+      name: 'Security Audit',
+      on: {
+        push: { branches: ['main', 'master'] },
+        pull_request: { branches: ['main', 'master'] },
+        schedule: [{ cron: '0 6 * * 1' }], // Every Monday 6am
+      },
+      jobs: {
+        security: {
+          name: '🔒 Security Audit',
+          'runs-on': 'ubuntu-latest',
+          permissions: {
+            actions: 'read',
+            contents: 'read',
+            'security-events': 'write',
+          },
+          steps: steps.filter(Boolean),
+        },
+      },
+    };
+
+    return this._toYaml(workflow, '# Generated by cistack\n# Security: dependency audit + CodeQL analysis (runs weekly)\n\n');
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Reusable step builders
+  // ══════════════════════════════════════════════════════════════════════════
+
+  _stepCheckout() {
+    return { name: 'Checkout code', uses: 'actions/checkout@v4', with: { 'fetch-depth': 0 } };
+  }
+
+  _setupSteps(lang) {
+    const steps = [];
+    if (['JavaScript', 'TypeScript'].includes(lang.name)) {
+      steps.push({
+        name: 'Set up Node.js',
+        uses: 'actions/setup-node@v4',
+        with: {
+          'node-version': lang.nodeVersion || '20',
+          cache: lang.packageManager === 'yarn' ? 'yarn' : lang.packageManager === 'pnpm' ? 'pnpm' : 'npm',
+        },
+      });
+      if (lang.packageManager === 'pnpm') {
+        steps.unshift({ name: 'Install pnpm', uses: 'pnpm/action-setup@v3', with: { version: 'latest' } });
+      }
+    }
+    if (lang.name === 'Python') {
+      steps.push({ name: 'Set up Python', uses: 'actions/setup-python@v5', with: { 'python-version': '3.x' } });
+    }
+    if (lang.name === 'Go') {
+      steps.push({ name: 'Set up Go', uses: 'actions/setup-go@v5', with: { 'go-version': 'stable' } });
+    }
+    if (lang.name === 'Java' || lang.name === 'Kotlin') {
+      steps.push({ name: 'Set up JDK', uses: 'actions/setup-java@v4', with: { 'java-version': '21', distribution: 'temurin' } });
+    }
+    if (lang.name === 'Ruby') {
+      steps.push({ name: 'Set up Ruby', uses: 'ruby/setup-ruby@v1', with: { 'bundler-cache': true } });
+    }
+    if (lang.name === 'Rust') {
+      steps.push({ name: 'Set up Rust', uses: 'dtolnay/rust-toolchain@stable' });
+    }
+    return steps;
+  }
+
+  _stepInstallDeps(lang) {
+    const pm = lang.packageManager;
+    if (pm === 'npm') return { name: 'Install dependencies', run: 'npm ci' };
+    if (pm === 'yarn') return { name: 'Install dependencies', run: 'yarn install --frozen-lockfile' };
+    if (pm === 'pnpm') return { name: 'Install dependencies', run: 'pnpm install --frozen-lockfile' };
+    if (pm === 'bun') return { name: 'Install dependencies', run: 'bun install' };
+    if (pm === 'pip') return { name: 'Install dependencies', run: 'pip install -r requirements.txt' };
+    if (pm === 'poetry') return { name: 'Install dependencies', run: 'pip install poetry && poetry install' };
+    if (pm === 'pipenv') return { name: 'Install dependencies', run: 'pip install pipenv && pipenv install --dev' };
+    if (pm === 'bundler') return { name: 'Install dependencies', run: 'bundle install' };
+    if (pm === 'go mod') return { name: 'Download modules', run: 'go mod download' };
+    if (pm === 'cargo') return null; // Cargo handles deps on build/test
+    if (pm === 'maven') return { name: 'Cache Maven', uses: 'actions/cache@v4', with: { path: '~/.m2', key: "${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}" } };
+    if (pm === 'composer') return { name: 'Install dependencies', run: 'composer install --no-interaction --prefer-dist --optimize-autoloader' };
+    return { name: 'Install dependencies', run: 'npm ci' };
+  }
+
+  _stepLint(lang) {
+    const pm = lang.packageManager || 'npm';
+    const scripts = (this.languages[0] || {}).scripts || {};
+
+    if (['JavaScript', 'TypeScript'].includes(lang.name)) {
+      // Pick the right lint command
+      const lintScript = this._findScript(['lint', 'lint:ci', 'eslint']);
+      const typeCheck = this._findScript(['type-check', 'typecheck', 'tsc']);
+      const format = this._findScript(['format:check', 'prettier:check', 'fmt:check']);
+
+      const cmds = [];
+      if (lintScript) cmds.push(`${pm === 'yarn' ? 'yarn' : pm === 'pnpm' ? 'pnpm' : 'npm run'} ${lintScript}`);
+      if (typeCheck) cmds.push(`${pm === 'yarn' ? 'yarn' : pm === 'pnpm' ? 'pnpm' : 'npm run'} ${typeCheck}`);
+      if (format) cmds.push(`${pm === 'yarn' ? 'yarn' : pm === 'pnpm' ? 'pnpm' : 'npm run'} ${format}`);
+      if (cmds.length === 0) cmds.push('npx eslint . --ext .js,.jsx,.ts,.tsx --max-warnings 0');
+
+      return { name: 'Lint', run: cmds.join('\n') };
+    }
+
+    if (lang.name === 'Python') return { name: 'Lint', run: 'pip install flake8 && flake8 .' };
+    if (lang.name === 'Go') return { name: 'Lint', run: 'gofmt -d . && go vet ./...' };
+    if (lang.name === 'Rust') return { name: 'Lint', run: 'cargo clippy -- -D warnings && cargo fmt --check' };
+    if (lang.name === 'Ruby') return { name: 'Lint', run: 'gem install rubocop && rubocop' };
+    if (lang.name === 'PHP') return { name: 'Lint', run: 'vendor/bin/phpcs' };
+
+    return null;
+  }
+
+  _unitTestSteps(lang) {
+    return this.unitTests.map((t) => ({
+      name: `Run ${t.name}`,
+      run: t.command,
+    }));
+  }
+
+  _buildSteps(lang) {
+    const pm = lang.packageManager || 'npm';
+    const buildScript = this._findScript(['build', 'build:prod']);
+
+    if (!buildScript && !['Go', 'Rust', 'Java', 'Kotlin'].includes(lang.name)) return [];
+
+    const steps = [];
+
+    if (['JavaScript', 'TypeScript'].includes(lang.name) && buildScript) {
+      steps.push({
+        name: 'Build',
+        run: `${pm === 'yarn' ? 'yarn' : pm === 'pnpm' ? 'pnpm' : 'npm'} run ${buildScript}`,
+        env: { NODE_ENV: 'production' },
+      });
+    }
+    if (lang.name === 'Go') steps.push({ name: 'Build', run: 'go build -v ./...' });
+    if (lang.name === 'Rust') steps.push({ name: 'Build', run: 'cargo build --release' });
+    if (lang.name === 'Java') steps.push({ name: 'Build', run: 'mvn -B package --no-transfer-progress -DskipTests' });
+    if (lang.name === 'Python') { /* Python typically doesn't have a build step */ }
+
+    return steps;
+  }
+
+  _stepUploadArtifact() {
+    const buildDir = (this.frameworks[0] && this.frameworks[0].buildDir) || 'dist';
+    return {
+      name: 'Upload build artifact',
+      uses: 'actions/upload-artifact@v4',
+      with: {
+        name: 'build-output',
+        path: buildDir,
+        'retention-days': 1,
+      },
+    };
+  }
+
+  _stepUploadCoverage() {
+    const hasCoverage = this.unitTests.some((t) =>
+      t.command.includes('coverage') || t.command.includes('--cov')
+    );
+    if (!hasCoverage) return null;
+    return {
+      name: 'Upload coverage report',
+      uses: 'codecov/codecov-action@v4',
+      with: { token: '${{ secrets.CODECOV_TOKEN }}', fail_ci_if_error: false },
+    };
+  }
+
+  _testMatrix(lang) {
+    if (['JavaScript', 'TypeScript'].includes(lang.name)) {
+      return {
+        matrix: {
+          'node-version': ['18.x', '20.x', '22.x'],
+        },
+        'fail-fast': false,
+      };
+    }
+    if (lang.name === 'Python') {
+      return { matrix: { 'python-version': ['3.10', '3.11', '3.12'] }, 'fail-fast': false };
+    }
+    return null;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Hosting-specific deploy steps
+  // ══════════════════════════════════════════════════════════════════════════
+
+  _hostingDeploySteps(h, lang) {
+    const steps = [];
+    const buildScript = this._findScript(['build', 'build:prod']);
+    const pm = lang.packageManager || 'npm';
+    const runCmd = (s) => `${pm === 'yarn' ? 'yarn' : pm === 'pnpm' ? 'pnpm' : 'npm'} run ${s}`;
+
+    switch (h.name) {
+      case 'Firebase': {
+        if (buildScript) {
+          steps.push({ name: 'Build', run: runCmd(buildScript), env: { NODE_ENV: 'production' } });
+        }
+        steps.push({
+          name: 'Deploy to Firebase',
+          uses: 'FirebaseExtended/action-hosting-deploy@v0',
+          with: {
+            repoToken: '${{ secrets.GITHUB_TOKEN }}',
+            firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}',
+            channelId: 'live',
+          },
+        });
+        break;
+      }
+
+      case 'Vercel': {
+        steps.push(
+          { name: 'Install Vercel CLI', run: 'npm install -g vercel' },
+          { name: 'Pull Vercel environment', run: 'vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}' },
+          { name: 'Build project', run: 'vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}' },
+          { name: 'Deploy to Vercel', run: 'vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}' },
+        );
+        break;
+      }
+
+      case 'Netlify': {
+        if (buildScript) {
+          steps.push({ name: 'Build', run: runCmd(buildScript), env: { NODE_ENV: 'production' } });
+        }
+        steps.push({
+          name: 'Deploy to Netlify',
+          uses: 'nwtgck/actions-netlify@v3.0',
+          with: {
+            'publish-dir': h.publishDir || 'dist',
+            'production-branch': 'main',
+            'github-token': '${{ secrets.GITHUB_TOKEN }}',
+            'deploy-message': "Deploy from GitHub Actions – ${{ github.sha }}",
+            'enable-pull-request-comment': true,
+            'enable-commit-comment': true,
+          },
+          env: {
+            NETLIFY_AUTH_TOKEN: '${{ secrets.NETLIFY_AUTH_TOKEN }}',
+            NETLIFY_SITE_ID: '${{ secrets.NETLIFY_SITE_ID }}',
+          },
+        });
+        break;
+      }
+
+      case 'GitHub Pages': {
+        if (buildScript) {
+          steps.push({ name: 'Build', run: runCmd(buildScript), env: { NODE_ENV: 'production' } });
+        }
+        steps.push(
+          { name: 'Setup Pages', uses: 'actions/configure-pages@v4' },
+          { name: 'Upload Pages artifact', uses: 'actions/upload-pages-artifact@v3', with: { path: (this.frameworks[0] && this.frameworks[0].buildDir) || 'dist' } },
+          { name: 'Deploy to GitHub Pages', id: 'deployment', uses: 'actions/deploy-pages@v4' },
+        );
+        break;
+      }
+
+      case 'AWS': {
+        if (buildScript) steps.push({ name: 'Build', run: runCmd(buildScript), env: { NODE_ENV: 'production' } });
+        const awsBuildDir = (this.frameworks[0] && this.frameworks[0].buildDir) || 'dist';
+        steps.push(
+          { name: 'Configure AWS credentials', uses: 'aws-actions/configure-aws-credentials@v4', with: { 'aws-access-key-id': '${{ secrets.AWS_ACCESS_KEY_ID }}', 'aws-secret-access-key': '${{ secrets.AWS_SECRET_ACCESS_KEY }}', 'aws-region': '${{ secrets.AWS_REGION }}' } },
+          { name: 'Sync to S3', run: 'aws s3 sync ./' + awsBuildDir + ' s3://${{ secrets.AWS_S3_BUCKET }} --delete' },
+          { name: 'Invalidate CloudFront', run: 'aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"' },
+        );
+        break;
+      }
+
+      case 'GCP App Engine': {
+        steps.push(
+          { name: 'Auth to Google Cloud', uses: 'google-github-actions/auth@v2', with: { credentials_json: '${{ secrets.GCP_SA_KEY }}' } },
+          { name: 'Set up Cloud SDK', uses: 'google-github-actions/setup-gcloud@v2' },
+          { name: 'Deploy to App Engine', run: 'gcloud app deploy --quiet' },
+        );
+        break;
+      }
+
+      case 'Heroku': {
+        if (buildScript) steps.push({ name: 'Build', run: runCmd(buildScript) });
+        steps.push({ name: 'Deploy to Heroku', uses: 'akhileshns/heroku-deploy@v3.13.15', with: { heroku_api_key: '${{ secrets.HEROKU_API_KEY }}', heroku_app_name: '${{ secrets.HEROKU_APP_NAME }}', heroku_email: '${{ secrets.HEROKU_EMAIL }}' } });
+        break;
+      }
+
+      case 'Render': {
+        steps.push({ name: 'Trigger Render deploy', run: 'curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}' });
+        break;
+      }
+
+      case 'Railway': {
+        steps.push(
+          { name: 'Install Railway CLI', run: 'npm install -g @railway/cli' },
+          { name: 'Deploy to Railway', run: 'railway up', env: { RAILWAY_TOKEN: '${{ secrets.RAILWAY_TOKEN }}' } },
+        );
+        break;
+      }
+
+      case 'Azure': {
+        if (buildScript) steps.push({ name: 'Build', run: runCmd(buildScript) });
+        steps.push({ name: 'Deploy to Azure Web App', uses: 'azure/webapps-deploy@v3', with: { 'app-name': '${{ secrets.AZURE_APP_NAME }}', 'publish-profile': '${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}', package: (this.frameworks[0] && this.frameworks[0].buildDir) || '.' } });
+        break;
+      }
+
+      default:
+        steps.push({ name: 'Deploy', run: h.deployCommand || 'echo "No deploy command configured"' });
+    }
+
+    return steps;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Utility helpers
+  // ══════════════════════════════════════════════════════════════════════════
+
+  _findScript(names) {
+    const pkg = this.languages[0];
+    // Access from the raw packageJson in projectPath
+    const fs = require('fs');
+    const path = require('path');
+    try {
+      const raw = JSON.parse(fs.readFileSync(path.join(this.projectPath, 'package.json'), 'utf8'));
+      const scripts = raw.scripts || {};
+      for (const n of names) {
+        if (scripts[n]) return n;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  _codeQLLanguage(langName) {
+    const map = {
+      'JavaScript': 'javascript',
+      'TypeScript': 'javascript',
+      'Python': 'python',
+      'Ruby': 'ruby',
+      'Go': 'go',
+      'Java': 'java',
+      'Kotlin': 'java',
+      'C#': 'csharp',
+      'C++': 'cpp',
+      'C': 'cpp',
+    };
+    return map[langName] || 'javascript';
+  }
+
+  _toYaml(obj, header = '') {
+    const raw = yaml.dump(obj, {
+      indent: 2,
+      lineWidth: 120,
+      quotingType: "'",
+      forceQuotes: false,
+      noRefs: true,
+    });
+    return header + raw;
+  }
+}
+
+module.exports = WorkflowGenerator;

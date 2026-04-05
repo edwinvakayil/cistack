@@ -1,0 +1,36 @@
+{
+  "name": "cistack",
+  "version": "1.0.0",
+  "description": "Automatically generate GitHub Actions CI/CD pipelines by analysing your codebase",
+  "main": "src/index.js",
+  "bin": {
+    "cistack": "./bin/ciflow.js"
+  },
+  "scripts": {
+    "start": "node bin/ciflow.js",
+    "test": "node bin/ciflow.js --dry-run"
+  },
+  "keywords": [
+    "github-actions",
+    "ci-cd",
+    "pipeline",
+    "automation",
+    "devops",
+    "firebase",
+    "vercel",
+    "netlify"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0",
+    "glob": "^10.3.10",
+    "inquirer": "^8.2.6",
+    "js-yaml": "^4.1.0",
+    "ora": "^5.4.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
