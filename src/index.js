@@ -6,23 +6,29 @@ const chalk = require('chalk');
 const ora = require('ora');
 const inquirer = require('inquirer');
 
-const CodebaseAnalyzer = require('./analyzers/codebase');
-const HostingDetector = require('./detectors/hosting');
+const CodebaseAnalyzer  = require('./analyzers/codebase');
+const MonorepoAnalyzer  = require('./analyzers/monorepo');
+const HostingDetector   = require('./detectors/hosting');
 const FrameworkDetector = require('./detectors/framework');
-const LanguageDetector = require('./detectors/language');
-const TestingDetector = require('./detectors/testing');
+const LanguageDetector  = require('./detectors/language');
+const TestingDetector   = require('./detectors/testing');
+const ReleaseDetector   = require('./detectors/release');
+const EnvDetector       = require('./detectors/env');
 const WorkflowGenerator = require('./generators/workflow');
-const { ensureDir, writeFile, banner } = require('./utils/helpers');
+const DependabotGenerator = require('./generators/dependabot');
+const ReleaseGenerator  = require('./generators/release');
+const ConfigLoader      = require('./config/loader');
+const { ensureDir, writeFile, banner, smartMergeWorkflow } = require('./utils/helpers');
 
 class CIFlow {
   constructor(options) {
     this.options = options;
     this.projectPath = options.projectPath;
-    this.outputDir = path.join(options.projectPath, options.outputDir);
-    this.dryRun = options.dryRun || false;
-    this.force = options.force || false;
-    this.prompt = options.prompt !== false;
-    this.verbose = options.verbose || false;
+    this.outputDir = path.join(options.projectPath, options.outputDir || '.github/workflows');
+    this.dryRun    = options.dryRun  || false;
+    this.force     = options.force   || false;
+    this.prompt    = options.prompt  !== false;
+    this.verbose   = options.verbose || false;
   }
 
   async run() {
@@ -31,7 +37,19 @@ class CIFlow {
     const spinner = ora({ text: 'Scanning project...', color: 'cyan' }).start();
 
     try {
-      // ── 1. Analyse the codebase ──────────────────────────────────────────
+      // ── 1. Load cistack.config.js ─────────────────────────────────────
+      const configLoader = new ConfigLoader(this.projectPath);
+      const userConfig = configLoader.load();
+      if (Object.keys(userConfig).length > 0) {
+        spinner.info(chalk.cyan('cistack.config.js loaded'));
+        spinner.start('Scanning project...');
+        // Allow config to override outputDir
+        if (userConfig.outputDir) {
+          this.outputDir = path.join(this.projectPath, userConfig.outputDir);
+        }
+      }
+
+      // ── 2. Analyse the codebase ───────────────────────────────────────
       const analyzer = new CodebaseAnalyzer(this.projectPath, { verbose: this.verbose });
       const codebaseInfo = await analyzer.analyse();
       spinner.succeed(chalk.green('Project scanned'));
@@ -40,46 +58,69 @@ class CIFlow {
         console.log('\n' + chalk.dim(JSON.stringify(codebaseInfo, null, 2)));
       }
 
-      // ── 2. Detect everything ─────────────────────────────────────────────
+      // ── 3. Detect stack + extras in parallel ──────────────────────────
       spinner.start('Detecting stack...');
-      const [hosting, frameworks, languages, testing] = await Promise.all([
-        new HostingDetector(this.projectPath, codebaseInfo).detect(),
-        new FrameworkDetector(this.projectPath, codebaseInfo).detect(),
-        new LanguageDetector(this.projectPath, codebaseInfo).detect(),
-        new TestingDetector(this.projectPath, codebaseInfo).detect(),
-      ]);
+      const [hosting, frameworks, languages, testing, releaseInfo, envVars, monorepoPackages] =
+        await Promise.all([
+          new HostingDetector(this.projectPath, codebaseInfo).detect(),
+          new FrameworkDetector(this.projectPath, codebaseInfo).detect(),
+          new LanguageDetector(this.projectPath, codebaseInfo).detect(),
+          new TestingDetector(this.projectPath, codebaseInfo).detect(),
+          new ReleaseDetector(this.projectPath, codebaseInfo).detect(),
+          new EnvDetector(this.projectPath, codebaseInfo).detect(),
+          new MonorepoAnalyzer(this.projectPath, codebaseInfo).analyze(),
+        ]);
       spinner.succeed(chalk.green('Stack detected'));
 
-      // ── 3. Print summary ─────────────────────────────────────────────────
-      this._printSummary({ hosting, frameworks, languages, testing });
+      // ── 4. Apply cistack.config.js overrides ──────────────────────────
+      let finalConfig = ConfigLoader.applyToStack(userConfig, {
+        hosting,
+        frameworks,
+        languages,
+        testing,
+        envVars,
+        monorepoPackages,
+        _config: userConfig,
+      });
 
-      // ── 4. Optional interactive confirmation ─────────────────────────────
-      let finalConfig = { hosting, frameworks, languages, testing };
+      // ── 5. Print summary ───────────────────────────────────────────────
+      this._printSummary(finalConfig, releaseInfo, envVars, monorepoPackages);
+
+      // ── 6. Optional interactive confirmation ──────────────────────────
       if (this.prompt) {
         finalConfig = await this._interactiveConfirm(finalConfig);
       }
 
-      // ── 5. Generate workflow(s) ──────────────────────────────────────────
+      // ── 7. Generate CI/CD workflow(s) ─────────────────────────────────
       spinner.start('Generating workflow(s)...');
       const generator = new WorkflowGenerator(finalConfig, this.projectPath);
       const workflows = generator.generate();
-      spinner.succeed(chalk.green(`Generated ${workflows.length} workflow(s)`));
+      spinner.succeed(chalk.green(`Generated ${workflows.length} CI workflow(s)`));
 
-      // ── 6. Write files ───────────────────────────────────────────────────
+      // ── 8. Generate dependabot.yml ────────────────────────────────────
+      const dependabotGen = new DependabotGenerator(codebaseInfo);
+      const dependabotFile = dependabotGen.generate();
+
+      // ── 9. Generate release.yml (if release tooling detected) ─────────
+      let releaseWorkflow = null;
+      if (releaseInfo) {
+        const releaseGen = new ReleaseGenerator(releaseInfo, finalConfig, this.projectPath);
+        releaseWorkflow = releaseGen.generate();
+        if (releaseWorkflow) workflows.push(releaseWorkflow);
+      }
+
+      // ── 10. Write files ────────────────────────────────────────────────
       if (this.dryRun) {
-        console.log('\n' + chalk.yellow('── DRY RUN – files not written ──\n'));
-        for (const wf of workflows) {
-          console.log(chalk.bold.cyan(`\n📄 ${wf.filename}`));
-          console.log(chalk.dim('─'.repeat(60)));
-          console.log(wf.content);
-        }
+        this._dryRunPrint(workflows, dependabotFile);
       } else {
         await this._writeWorkflows(workflows);
+        await this._writeDependabot(dependabotFile);
       }
 
       console.log('\n' + chalk.bold.green('✅  Done! Your GitHub Actions pipeline is ready.'));
       if (!this.dryRun) {
-        console.log(chalk.dim(`   → ${this.outputDir}\n`));
+        console.log(chalk.dim(`   Workflows → ${this.outputDir}`));
+        console.log(chalk.dim(`   Dependabot → ${path.join(this.projectPath, '.github', 'dependabot.yml')}\n`));
       }
     } catch (err) {
       spinner.fail(chalk.red('Failed: ' + err.message));
@@ -90,16 +131,32 @@ class CIFlow {
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
-  _printSummary({ hosting, frameworks, languages, testing }) {
+  _printSummary({ hosting, frameworks, languages, testing }, releaseInfo, envVars, monorepoPackages) {
     const line = (label, value) =>
-      console.log(`  ${chalk.dim(label.padEnd(18))} ${chalk.cyan(value || chalk.italic('none detected'))}`);
+      console.log(`  ${chalk.dim(label.padEnd(20))} ${chalk.cyan(value || chalk.italic('none detected'))}`);
 
     console.log('\n' + chalk.bold('  📊 Detected Stack'));
-    console.log(chalk.dim('  ' + '─'.repeat(40)));
-    line('Languages:', languages.map((l) => l.name).join(', '));
-    line('Frameworks:', frameworks.map((f) => f.name).join(', '));
-    line('Hosting:', hosting.map((h) => h.name).join(', ') || 'none');
-    line('Testing:', testing.map((t) => t.name).join(', ') || 'none');
+    console.log(chalk.dim('  ' + '─'.repeat(48)));
+    line('Languages:',   languages.map((l) => l.name).join(', '));
+    line('Frameworks:',  frameworks.map((f) => f.name).join(', '));
+    line('Hosting:',     hosting.map((h) => h.name).join(', ') || 'none');
+    line('Testing:',     testing.map((t) => t.name).join(', ')  || 'none');
+    line('Release tool:', releaseInfo ? releaseInfo.tool : 'none');
+
+    if (monorepoPackages.length > 0) {
+      line('Monorepo pkgs:', monorepoPackages.map((p) => p.name).join(', '));
+    }
+
+    if (envVars.sourceFile) {
+      line('Env file:', envVars.sourceFile);
+      if (envVars.secrets.length > 0) {
+        line('  Secrets:', envVars.secrets.join(', '));
+      }
+      if (envVars.public.length > 0) {
+        line('  Public vars:', envVars.public.join(', '));
+      }
+    }
+
     console.log('');
   }
 
@@ -129,36 +186,88 @@ class CIFlow {
 
       config.hosting = customHosting
         .filter((h) => h !== 'none')
-        .map((h) => ({ name: h, confidence: 1.0, manual: true }));
+        .map((h) => ({ name: h, confidence: 1.0, manual: true, secrets: [] }));
     }
 
     return config;
   }
+
+  // ── Dry run ───────────────────────────────────────────────────────────────
+
+  _dryRunPrint(workflows, dependabotFile) {
+    console.log('\n' + chalk.yellow('── DRY RUN – files not written ──\n'));
+
+    for (const wf of workflows) {
+      console.log(chalk.bold.cyan(`\n📄 .github/workflows/${wf.filename}`));
+      console.log(chalk.dim('─'.repeat(60)));
+      console.log(wf.content);
+    }
+
+    console.log(chalk.bold.cyan(`\n📄 .github/dependabot.yml`));
+    console.log(chalk.dim('─'.repeat(60)));
+    console.log(dependabotFile.content);
+  }
+
+  // ── Write workflows ────────────────────────────────────────────────────────
 
   async _writeWorkflows(workflows) {
     ensureDir(this.outputDir);
 
     for (const wf of workflows) {
       const filePath = path.join(this.outputDir, wf.filename);
-      const exists = fs.existsSync(filePath);
+      const exists   = fs.existsSync(filePath);
 
       if (exists && !this.force) {
-        const { overwrite } = await inquirer.prompt([
-          {
-            type: 'confirm',
-            name: 'overwrite',
-            message: `${wf.filename} already exists. Overwrite?`,
-            default: false,
-          },
-        ]);
-        if (!overwrite) {
-          console.log(chalk.dim(`  Skipped ${wf.filename}`));
+        const existing = fs.readFileSync(filePath, 'utf8');
+        const { content: merged, changes } = smartMergeWorkflow(existing, wf.content);
+
+        if (changes.length === 0) {
+          console.log(chalk.dim(`  ○ No changes: ${wf.filename}`));
           continue;
         }
+
+        console.log(chalk.yellow(`  ↻ Smart-merged: ${wf.filename}`));
+        for (const c of changes) {
+          console.log(chalk.dim(`    • ${c}`));
+        }
+
+        writeFile(filePath, merged);
+      } else if (exists && this.force) {
+        writeFile(filePath, wf.content);
+        console.log(chalk.green(`  ✔ Overwritten:  ${wf.filename}`));
+      } else {
+        writeFile(filePath, wf.content);
+        console.log(chalk.green(`  ✔ Written:      ${wf.filename}`));
+      }
+    }
+  }
+
+  // ── Write dependabot.yml ───────────────────────────────────────────────────
+
+  async _writeDependabot(dependabotFile) {
+    const githubDir = path.join(this.projectPath, '.github');
+    const filePath  = path.join(githubDir, 'dependabot.yml');
+    const exists    = fs.existsSync(filePath);
+
+    ensureDir(githubDir);
+
+    if (exists && !this.force) {
+      const existing = fs.readFileSync(filePath, 'utf8');
+      const { content: merged, changes } = smartMergeWorkflow(existing, dependabotFile.content);
+
+      if (changes.length === 0) {
+        console.log(chalk.dim(`  ○ No changes: dependabot.yml`));
+        return;
       }
 
-      writeFile(filePath, wf.content);
-      console.log(chalk.green(`  ✔ Written: ${wf.filename}`));
+      writeFile(filePath, merged);
+      console.log(chalk.yellow(`  ↻ Smart-merged: dependabot.yml`));
+      for (const c of changes) {
+        console.log(chalk.dim(`    • ${c}`));
+      }
+    } else {
+      writeFile(filePath, dependabotFile.content);
+      console.log(chalk.green(`  ✔ Written:      .github/dependabot.yml`));
     }
   }
 }
