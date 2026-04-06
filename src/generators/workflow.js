@@ -280,6 +280,7 @@ class WorkflowGenerator {
     const h = this.primaryHosting;
     const lang = this.primaryLang;
     const branches = this.extraConfig.branches || ['main', 'master'];
+    const isGHPages = h.name === 'GitHub Pages';
 
     const preDeploySteps = [
       this._stepCheckout(),
@@ -288,14 +289,21 @@ class WorkflowGenerator {
     ].filter(Boolean);
 
     const deploySteps = this._hostingDeploySteps(h, lang, false); // production
-    const previewSteps = this._hostingDeploySteps(h, lang, true);  // preview
+    // GitHub Pages has no PR preview concept — skip preview job for it
+    const previewSteps = isGHPages ? [] : this._hostingDeploySteps(h, lang, true);
+
+    // GitHub Pages requires special permissions on the deploy job
+    const ghPagesPermissions = isGHPages
+      ? { pages: 'write', 'id-token': 'write', contents: 'read' }
+      : undefined;
 
     const jobs = {
       deploy: {
         name: `🚀 Deploy → ${h.name} (Production)`,
         if: "github.event_name == 'push' || github.event_name == 'workflow_dispatch'",
         'runs-on': 'ubuntu-latest',
-        environment: 'production',
+        environment: isGHPages ? 'github-pages' : 'production',
+        ...(ghPagesPermissions ? { permissions: ghPagesPermissions } : {}),
         steps: [...preDeploySteps, ...deploySteps].filter(Boolean),
       },
     };
@@ -323,13 +331,14 @@ class WorkflowGenerator {
 
     const envComment = this._envComment();
 
+    // GitHub Pages doesn't need pull_request trigger (no preview)
+    const onTrigger = isGHPages
+      ? { push: { branches: branches.filter((b) => b !== 'develop') }, workflow_dispatch: {} }
+      : { push: { branches: branches.filter((b) => b !== 'develop') }, pull_request: { branches }, workflow_dispatch: {} };
+
     const workflow = {
       name: `Deploy to ${h.name}`,
-      on: {
-        push: { branches: branches.filter((b) => b !== 'develop') },
-        pull_request: { branches },
-        workflow_dispatch: {},
-      },
+      on: onTrigger,
       jobs,
     };
 
@@ -739,11 +748,28 @@ class WorkflowGenerator {
 
       case 'Vercel': {
         const prodFlag = isPreview ? '' : '--prod';
+        const vercelEnv = {
+          VERCEL_TOKEN:      '${{ secrets.VERCEL_TOKEN }}',
+          VERCEL_ORG_ID:     '${{ secrets.VERCEL_ORG_ID }}',
+          VERCEL_PROJECT_ID: '${{ secrets.VERCEL_PROJECT_ID }}',
+        };
         steps.push(
           { name: 'Install Vercel CLI', run: 'npm install -g vercel' },
-          { name: 'Pull Vercel environment', run: `vercel pull --yes --environment=${isPreview ? 'preview' : 'production'} --token=\${{ secrets.VERCEL_TOKEN }}` },
-          { name: 'Build project', run: `vercel build${prodFlag ? ' ' + prodFlag : ''} --token=\${{ secrets.VERCEL_TOKEN }}` },
-          { name: 'Deploy to Vercel', run: `vercel deploy --prebuilt${prodFlag ? ' ' + prodFlag : ''} --token=\${{ secrets.VERCEL_TOKEN }}` },
+          {
+            name: 'Pull Vercel environment',
+            run: `vercel pull --yes --environment=${isPreview ? 'preview' : 'production'} --token=\${{ secrets.VERCEL_TOKEN }}`,
+            env: vercelEnv,
+          },
+          {
+            name: 'Build project',
+            run: `vercel build${prodFlag ? ' ' + prodFlag : ''} --token=\${{ secrets.VERCEL_TOKEN }}`,
+            env: vercelEnv,
+          },
+          {
+            name: 'Deploy to Vercel',
+            run: `vercel deploy --prebuilt${prodFlag ? ' ' + prodFlag : ''} --token=\${{ secrets.VERCEL_TOKEN }}`,
+            env: vercelEnv,
+          },
         );
         break;
       }
@@ -832,7 +858,10 @@ class WorkflowGenerator {
       }
 
       case 'Render': {
-        steps.push({ name: 'Trigger Render deploy', run: 'curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}' });
+        // Render doesn't support PR preview deploys via deploy hook
+        if (!isPreview) {
+          steps.push({ name: 'Trigger Render deploy', run: 'curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"' });
+        }
         break;
       }
 

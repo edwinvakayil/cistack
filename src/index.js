@@ -309,7 +309,19 @@ class CIFlow {
           name:       HOSTING_NAME_MAP[h] || h,   // always the correct PascalCase name
           confidence: 1.0,
           manual:     true,
-          secrets:    [],
+          // Populate secrets so the generated deploy.yml header lists them correctly
+          secrets: {
+            firebase:       ['FIREBASE_SERVICE_ACCOUNT'],
+            vercel:         ['VERCEL_TOKEN', 'VERCEL_ORG_ID', 'VERCEL_PROJECT_ID'],
+            netlify:        ['NETLIFY_AUTH_TOKEN', 'NETLIFY_SITE_ID'],
+            aws:            ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION', 'AWS_S3_BUCKET', 'CLOUDFRONT_DISTRIBUTION_ID'],
+            gcp:            ['GCP_SA_KEY'],
+            azure:          ['AZURE_APP_NAME', 'AZURE_WEBAPP_PUBLISH_PROFILE'],
+            heroku:         ['HEROKU_API_KEY', 'HEROKU_APP_NAME', 'HEROKU_EMAIL'],
+            render:         ['RENDER_DEPLOY_HOOK_URL'],
+            railway:        ['RAILWAY_TOKEN'],
+            'github-pages': [],
+          }[h] || [],
         }));
     }
 
