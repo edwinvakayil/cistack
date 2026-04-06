@@ -277,7 +277,6 @@ class WorkflowGenerator {
   _buildDeployWorkflow() {
     const h = this.primaryHosting;
     const lang = this.primaryLang;
-
     const branches = this.extraConfig.branches || ['main', 'master'];
 
     const preDeploySteps = [
@@ -286,16 +285,29 @@ class WorkflowGenerator {
       this._stepInstallDeps(lang),
     ].filter(Boolean);
 
-    const deploySteps = this._hostingDeploySteps(h, lang);
+    const deploySteps = this._hostingDeploySteps(h, lang, false); // production
+    const previewSteps = this._hostingDeploySteps(h, lang, true);  // preview
 
     const jobs = {
       deploy: {
-        name: `🚀 Deploy → ${h.name}`,
+        name: `🚀 Deploy → ${h.name} (Production)`,
+        if: "github.event_name == 'push' || github.event_name == 'workflow_dispatch'",
         'runs-on': 'ubuntu-latest',
         environment: 'production',
         steps: [...preDeploySteps, ...deploySteps].filter(Boolean),
       },
     };
+
+    // Add preview job if supported
+    if (previewSteps.length > 0) {
+      jobs.preview = {
+        name: `✨ Deploy → ${h.name} (Preview)`,
+        if: "github.event_name == 'pull_request'",
+        'runs-on': 'ubuntu-latest',
+        environment: 'preview',
+        steps: [...preDeploySteps, ...previewSteps].filter(Boolean),
+      };
+    }
 
     const allSecrets = [
       ...(h.secrets || []),
@@ -313,6 +325,7 @@ class WorkflowGenerator {
       name: `Deploy to ${h.name}`,
       on: {
         push: { branches: branches.filter((b) => b !== 'develop') },
+        pull_request: { branches },
         workflow_dispatch: {},
       },
       jobs,
@@ -499,8 +512,8 @@ class WorkflowGenerator {
         uses: 'actions/setup-node@v4',
         with: {
           'node-version': lang.nodeVersion || '20',
-          // setup-node handles npm/yarn/pnpm caching natively
-          cache: lang.packageManager === 'yarn' ? 'yarn' : lang.packageManager === 'pnpm' ? 'pnpm' : 'npm',
+          // Use native caching in setup-node
+          cache: cacheOverride.npm !== false ? (lang.packageManager === 'yarn' ? 'yarn' : lang.packageManager === 'pnpm' ? 'pnpm' : 'npm') : undefined,
         },
       });
     }
@@ -510,35 +523,12 @@ class WorkflowGenerator {
       steps.push({
         name: 'Set up Python',
         uses: 'actions/setup-python@v5',
-        with: { 'python-version': '3.x' },
+        with: { 
+          'python-version': '3.x',
+          // Native caching for pip/poetry
+          cache: cacheOverride.pip !== false ? (lang.packageManager === 'poetry' ? 'poetry' : 'pip') : undefined
+        },
       });
-
-      if (cacheOverride.pip !== false) {
-        if (lang.packageManager === 'poetry') {
-          steps.push({
-            name: 'Cache Poetry virtualenv',
-            uses: 'actions/cache@v4',
-            with: {
-              path: [
-                '~/.cache/pypoetry',
-                '~/.local/share/pypoetry',
-              ].join('\n'),
-              key: "${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}",
-              'restore-keys': '${{ runner.os }}-poetry-',
-            },
-          });
-        } else {
-          steps.push({
-            name: 'Cache pip',
-            uses: 'actions/cache@v4',
-            with: {
-              path: '~/.cache/pip',
-              key: "${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}",
-              'restore-keys': '${{ runner.os }}-pip-',
-            },
-          });
-        }
-      }
     }
 
     // ── Go ───────────────────────────────────────────────────────────────
@@ -546,20 +536,11 @@ class WorkflowGenerator {
       steps.push({
         name: 'Set up Go',
         uses: 'actions/setup-go@v5',
-        with: { 'go-version': 'stable', cache: true },
+        with: { 
+          'go-version': 'stable', 
+          cache: cacheOverride.go !== false 
+        },
       });
-      // setup-go has built-in module cache; add explicit one for Go pkg mod
-      if (cacheOverride.go !== false) {
-        steps.push({
-          name: 'Cache Go modules',
-          uses: 'actions/cache@v4',
-          with: {
-            path: '~/go/pkg/mod',
-            key: "${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}",
-            'restore-keys': '${{ runner.os }}-go-',
-          },
-        });
-      }
     }
 
     // ── Java / Kotlin ─────────────────────────────────────────────────────
@@ -567,35 +548,13 @@ class WorkflowGenerator {
       steps.push({
         name: 'Set up JDK',
         uses: 'actions/setup-java@v4',
-        with: { 'java-version': '21', distribution: 'temurin' },
+        with: { 
+          'java-version': '21', 
+          distribution: 'temurin',
+          // Native caching for maven/gradle
+          cache: cacheOverride.maven !== false ? (lang.packageManager === 'gradle' ? 'gradle' : 'maven') : undefined
+        },
       });
-
-      if (lang.packageManager === 'maven' && cacheOverride.maven !== false) {
-        steps.push({
-          name: 'Cache Maven repository',
-          uses: 'actions/cache@v4',
-          with: {
-            path: '~/.m2',
-            key: "${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}",
-            'restore-keys': '${{ runner.os }}-m2-',
-          },
-        });
-      }
-
-      if (lang.packageManager === 'gradle' && cacheOverride.gradle !== false) {
-        steps.push({
-          name: 'Cache Gradle packages',
-          uses: 'actions/cache@v4',
-          with: {
-            path: [
-              '~/.gradle/caches',
-              '~/.gradle/wrapper',
-            ].join('\n'),
-            key: "${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}",
-            'restore-keys': '${{ runner.os }}-gradle-',
-          },
-        });
-      }
     }
 
     // ── Ruby ─────────────────────────────────────────────────────────────
@@ -603,9 +562,8 @@ class WorkflowGenerator {
       steps.push({
         name: 'Set up Ruby',
         uses: 'ruby/setup-ruby@v1',
-        with: { 'bundler-cache': true },
+        with: { 'bundler-cache': cacheOverride.bundler !== false },
       });
-      // setup-ruby already handles bundler cache via bundler-cache: true
     }
 
     // ── Rust ─────────────────────────────────────────────────────────────
@@ -754,7 +712,7 @@ class WorkflowGenerator {
   // Hosting-specific deploy steps
   // ══════════════════════════════════════════════════════════════════════════
 
-  _hostingDeploySteps(h, lang) {
+  _hostingDeploySteps(h, lang, isPreview = false) {
     const steps = [];
     const buildScript = this._findScript(['build', 'build:prod']);
     const pm = lang.packageManager || 'npm';
@@ -766,23 +724,24 @@ class WorkflowGenerator {
           steps.push({ name: 'Build', run: runCmd(buildScript), env: { NODE_ENV: 'production' } });
         }
         steps.push({
-          name: 'Deploy to Firebase',
+          name: isPreview ? 'Deploy Preview' : 'Deploy to Firebase',
           uses: 'FirebaseExtended/action-hosting-deploy@v0',
           with: {
             repoToken: '${{ secrets.GITHUB_TOKEN }}',
             firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}',
-            channelId: 'live',
+            channelId: isPreview ? 'preview-${{ github.event.number }}' : 'live',
           },
         });
         break;
       }
 
       case 'Vercel': {
+        const prodFlag = isPreview ? '' : '--prod';
         steps.push(
           { name: 'Install Vercel CLI', run: 'npm install -g vercel' },
-          { name: 'Pull Vercel environment', run: 'vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}' },
-          { name: 'Build project', run: 'vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}' },
-          { name: 'Deploy to Vercel', run: 'vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}' },
+          { name: 'Pull Vercel environment', run: `vercel pull --yes --environment=${isPreview ? 'preview' : 'production'} --token=\${{ secrets.VERCEL_TOKEN }}` },
+          { name: 'Build project', run: `vercel build ${prodFlag} --token=\${{ secrets.VERCEL_TOKEN }}` },
+          { name: 'Deploy to Vercel', run: `vercel deploy --prebuilt ${prodFlag} --token=\${{ secrets.VERCEL_TOKEN }}` },
         );
         break;
       }
@@ -792,15 +751,17 @@ class WorkflowGenerator {
           steps.push({ name: 'Build', run: runCmd(buildScript), env: { NODE_ENV: 'production' } });
         }
         steps.push({
-          name: 'Deploy to Netlify',
+          name: isPreview ? 'Deploy Preview' : 'Deploy to Netlify',
           uses: 'nwtgck/actions-netlify@v3.0',
           with: {
             'publish-dir': h.publishDir || 'dist',
             'production-branch': 'main',
             'github-token': '${{ secrets.GITHUB_TOKEN }}',
-            'deploy-message': 'Deploy from GitHub Actions – ${{ github.sha }}',
+            'deploy-message': isPreview ? 'Preview Deploy – ${{ github.event.number }}' : 'Production Deploy – ${{ github.sha }}',
             'enable-pull-request-comment': true,
             'enable-commit-comment': true,
+            'production-deploy': !isPreview,
+            alias: isPreview ? 'preview-${{ github.event.number }}' : undefined,
           },
           env: {
             NETLIFY_AUTH_TOKEN: '${{ secrets.NETLIFY_AUTH_TOKEN }}',

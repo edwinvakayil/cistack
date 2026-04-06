@@ -20,6 +20,8 @@ const ReleaseGenerator  = require('./generators/release');
 const ConfigLoader      = require('./config/loader');
 const { ensureDir, writeFile, banner, smartMergeWorkflow } = require('./utils/helpers');
 
+const WorkflowAnalyzer = require('./analyzers/workflow');
+
 class CIFlow {
   constructor(options) {
     this.options = options;
@@ -29,6 +31,7 @@ class CIFlow {
     this.force     = options.force   || false;
     this.prompt    = options.prompt  !== false;
     this.verbose   = options.verbose || false;
+    this.explain   = options.explain || false;
   }
 
   async run() {
@@ -129,19 +132,100 @@ class CIFlow {
     }
   }
 
+  async audit() {
+    banner();
+    const spinner = ora({ text: 'Auditing existing workflows...', color: 'cyan' }).start();
+    
+    try {
+      const analyzer = new WorkflowAnalyzer(this.projectPath);
+      const results = await analyzer.audit();
+      spinner.succeed(chalk.green('Audit complete'));
+
+      if (results.files.length === 0) {
+        console.log(chalk.yellow('\nNo workflow files found to audit.'));
+        return;
+      }
+
+      console.log('\n' + chalk.bold('🔍 Workflow Audit Results'));
+      console.log(chalk.dim('─'.repeat(48)));
+
+      for (const file of results.files) {
+        if (file.error) {
+          console.log(`\n📄 ${chalk.red(file.filename)} – ${chalk.red(file.error)}`);
+          continue;
+        }
+
+        console.log(`\n📄 ${chalk.cyan(file.filename)} – ${file.issues.length > 0 ? chalk.yellow(file.issues.length + ' issues found') : chalk.green('Excellent')}`);
+        
+        for (const issue of file.issues) {
+          const color = issue.severity === 'high' ? chalk.red : issue.severity === 'medium' ? chalk.yellow : chalk.dim;
+          console.log(`  ${color('•')} ${issue.message}`);
+          console.log(`    ${chalk.dim('Fix:')} ${chalk.italic(issue.fix)}`);
+        }
+      }
+
+      if (results.totalIssues > 0) {
+        console.log('\n' + chalk.yellow(`💡 Run ${chalk.bold('cistack upgrade')} to automatically fix outdated actions.`));
+      } else {
+        console.log('\n' + chalk.green('✅  Your workflows are up to date and follow best practices.'));
+      }
+      console.log('');
+    } catch (err) {
+      spinner.fail(chalk.red('Audit failed: ' + err.message));
+      process.exit(1);
+    }
+  }
+
+  async upgrade() {
+    banner();
+    const spinner = ora({ text: 'Upgrading actions...', color: 'cyan' }).start();
+    
+    try {
+      const analyzer = new WorkflowAnalyzer(this.projectPath);
+      const results = await analyzer.upgrade(this.dryRun);
+      
+      if (results.changes === 0) {
+        spinner.succeed(chalk.green('All actions are already up to date.'));
+        return;
+      }
+
+      spinner.succeed(chalk.green(`Upgraded ${results.changes} action(s) across ${results.upgradedFiles.length} file(s)`));
+      
+      if (this.dryRun) {
+        console.log(chalk.yellow('\n── DRY RUN – files not modified ──'));
+      }
+
+      for (const file of results.upgradedFiles) {
+        console.log(`  ${chalk.green('✔')} ${file.filename} (${file.changes} changes)`);
+      }
+      console.log('');
+    } catch (err) {
+      spinner.fail(chalk.red('Upgrade failed: ' + err.message));
+      process.exit(1);
+    }
+  }
+
   // ── helpers ──────────────────────────────────────────────────────────────
 
-  _printSummary({ hosting, frameworks, languages, testing }, releaseInfo, envVars, monorepoPackages) {
-    const line = (label, value) =>
+  _printSummary(config, releaseInfo, envVars, monorepoPackages) {
+    const { hosting, frameworks, languages, testing } = config;
+    const line = (label, value, reasons = []) => {
       console.log(`  ${chalk.dim(label.padEnd(20))} ${chalk.cyan(value || chalk.italic('none detected'))}`);
+      if (this.explain && reasons && reasons.length > 0) {
+        for (const reason of reasons) {
+          console.log(`    ${chalk.dim('↳')} ${chalk.italic.gray(reason)}`);
+        }
+      }
+    };
 
     console.log('\n' + chalk.bold('  📊 Detected Stack'));
     console.log(chalk.dim('  ' + '─'.repeat(48)));
-    line('Languages:',   languages.map((l) => l.name).join(', '));
-    line('Frameworks:',  frameworks.map((f) => f.name).join(', '));
-    line('Hosting:',     hosting.map((h) => h.name).join(', ') || 'none');
-    line('Testing:',     testing.map((t) => t.name).join(', ')  || 'none');
-    line('Release tool:', releaseInfo ? releaseInfo.tool : 'none');
+    
+    line('Languages:',   languages.map((l) => l.name).join(', '), languages[0] && languages[0].reasons);
+    line('Frameworks:',  frameworks.map((f) => f.name).join(', '), frameworks[0] && frameworks[0].reasons);
+    line('Hosting:',     hosting.map((h) => h.name).join(', ') || 'none', hosting[0] && hosting[0].reasons);
+    line('Testing:',     testing.map((t) => t.name).join(', ')  || 'none', testing[0] && testing[0].reasons);
+    line('Release tool:', releaseInfo ? releaseInfo.tool : 'none', releaseInfo && releaseInfo.reasons);
 
     if (monorepoPackages.length > 0) {
       line('Monorepo pkgs:', monorepoPackages.map((p) => p.name).join(', '));

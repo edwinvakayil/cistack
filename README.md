@@ -10,12 +10,15 @@
 
 - 🔍 **Deep codebase analysis** — reads `package.json`, lock files, config files, and directory structure
 - 🧠 **Smart detection** — identifies 30+ frameworks, 12 languages, 12+ testing tools, and 10+ hosting platforms
+- ⚡ **Native Cache support** — speeds up pipelines by 2–4min using native caching for npm, pip, go, cargo, maven, gradle, and bundler
+- ✨ **PR Preview Deploys** — automatic preview environments for Vercel and Netlify on every pull request
 - 🚀 **Hosting auto-detect** — Firebase, Vercel, Netlify, AWS, GCP, Azure, Heroku, Render, Railway, GitHub Pages, Docker
-- 🏗️ **Multi-workflow output** — generates separate `ci.yml`, `deploy.yml`, `docker.yml`, and `security.yml` as appropriate
+- 🛡️ **Workflow Audit & Upgrade** — analyse existing `.github/workflows` for outdated actions and missing best practices
+- 🏗️ **Multi-workflow output** — generates separate `ci.yml`, `deploy.yml`, `docker.yml`, and `security.yml`
 - 🔒 **Security built-in** — CodeQL analysis + dependency auditing on every pipeline
-- 📦 **Monorepo aware** — detects Turborepo, Nx, Lerna, pnpm workspaces
+- 📦 **Monorepo aware** — detects Turborepo, Nx, Lerna, pnpm workspaces (supports per-package workflows)
 - ✅ **Interactive mode** — confirms detected settings before writing files
-- 🎯 **Zero config** — works out of the box with no configuration needed
+- 🎯 **Zero config** — works out of the box with `cistack.config.js` for overrides
 
 ---
 
@@ -33,9 +36,14 @@ npm install -g cistack
 
 ## Usage
 
+### Generate Pipelines
+Analyze your stack and generate best-practice workflows.
 ```bash
 # In your project directory
 npx cistack
+
+# Show reasoning for detected stack
+npx cistack --explain
 
 # Specify a project path
 npx cistack --path /path/to/project
@@ -45,16 +53,37 @@ npx cistack --output .github/workflows
 
 # Dry run (print YAML without writing files)
 npx cistack --dry-run
-
-# Skip interactive prompts
-npx cistack --no-prompt
-
-# Verbose output
-npx cistack --verbose
-
-# Force overwrite existing files
-npx cistack --force
 ```
+
+### Audit Existing Workflows
+Analyze your current `.github/workflows` folder for outdated actions or missing features.
+```bash
+npx cistack audit
+```
+
+### Automatic Upgrade
+Automatically bump all action versions (e.g., `actions/checkout@v3` → `@v4`) across all your workflow files to the latest stable releases.
+```bash
+npx cistack upgrade
+```
+
+### Initialization
+Create a `cistack.config.js` to override auto-detected settings.
+```bash
+npx cistack init
+```
+
+---
+
+## Flags
+
+- `--explain` — Show detailed reasoning for every detection (build trust)
+- `--dry-run` — Print YAML to terminal without writing to disk
+- `--force` — Overwrite existing files instead of smart-merging
+- `--no-prompt` — Skip interactive confirmation
+- `--verbose` — Show raw analysis data
+- `--path <dir>` — Project root directory
+- `--output <dir>` — Workflow output directory (default: `.github/workflows`)
 
 ---
 
@@ -112,21 +141,23 @@ Runs on every push and pull request:
 2. **Test** — unit tests with coverage upload (matrix across Node versions)
 3. **Build** — production build, artifact upload
 4. **E2E** — Cypress / Playwright (if detected)
+5. **Caching** — Full dependency caching for faster runs
 
 ### `deploy.yml` — Continuous Deployment
 Triggers on push to `main`/`master` + manual dispatch:
-- Platform-specific deploy using the best available GitHub Action
+- Platform-specific deploy using official GitHub Actions
+- **PR Preview Deploys** — automatic previews for Vercel and Netlify pull requests
 - Proper secret references documented in the file header
 
 ### `docker.yml` — Docker Build & Push
 Triggers on push to `main` and version tags:
 - Multi-platform build via Docker Buildx
 - Pushes to GitHub Container Registry (GHCR)
-- Build cache via GitHub Actions cache
+- Build cache via GitHub Actions cache (GHA)
 
 ### `security.yml` — Security Audit
 Runs on push, PRs, and weekly schedule:
-- Dependency vulnerability audit (npm audit / safety / etc.)
+- Dependency vulnerability audit (npm audit / safety / cargo audit)
 - GitHub CodeQL analysis for the detected language
 
 ---
@@ -142,28 +173,11 @@ Each generated `deploy.yml` has a comment at the top listing the exact secrets n
 
 ## Examples
 
-**Next.js + Vercel project:**
-```
-npx cistack
-# → .github/workflows/ci.yml     (lint, test, build)
-# → .github/workflows/deploy.yml (vercel deploy)
-# → .github/workflows/security.yml
-```
-
-**Firebase + React project:**
-```
-npx cistack
-# → .github/workflows/ci.yml
-# → .github/workflows/deploy.yml (firebase deploy --only hosting)
-# → .github/workflows/security.yml
-```
-
-**Node.js API + Docker:**
-```
-npx cistack
-# → .github/workflows/ci.yml
-# → .github/workflows/docker.yml (GHCR push)
-# → .github/workflows/security.yml
+**Next.js + Vercel project with Audit:**
+```bash
+npx cistack audit       # Check existing workflows
+npx cistack upgrade     # Update versions to v4
+npx cistack generate    # Refresh with latest caching & previews
 ```
 
 ---

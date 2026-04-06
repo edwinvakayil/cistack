@@ -20,6 +20,7 @@ program
   .option('--force', 'Overwrite existing workflow files without smart-merge')
   .option('--no-prompt', 'Skip interactive prompts and use detected settings')
   .option('--verbose', 'Show detailed analysis output')
+  .option('--explain', 'Show reasoning for detected stack')
   .action(async (options) => {
     const ciflow = new CIFlow({
       projectPath: path.resolve(options.path),
@@ -28,12 +29,36 @@ program
       force:       options.force,
       prompt:      options.prompt,
       verbose:     options.verbose,
+      explain:     options.explain,
     });
     await ciflow.run();
   });
 
 program
+  .command('audit')
+  .description("Analyse existing .github/workflows/ folder and suggest fixes")
+  .option('-p, --path <dir>', 'Path to the project root', process.cwd())
+  .action(async (options) => {
+    const ciflow = new CIFlow({ projectPath: path.resolve(options.path) });
+    await ciflow.audit();
+  });
+
+program
+  .command('upgrade')
+  .description("Automatically bump action versions across all workflow files")
+  .option('-p, --path <dir>', 'Path to the project root', process.cwd())
+  .option('--dry-run', 'Show what would be upgraded without modifying files')
+  .action(async (options) => {
+    const ciflow = new CIFlow({ 
+      projectPath: path.resolve(options.path),
+      dryRun: options.dryRun
+    });
+    await ciflow.upgrade();
+  });
+
+program
   .command('init')
+  // ... rest of init
   .description('Create a starter cistack.config.js in the current directory')
   .option('-p, --path <dir>', 'Path to the project root', process.cwd())
   .action(async (options) => {
