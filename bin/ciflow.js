@@ -6,10 +6,12 @@ const { program } = require('commander');
 const path = require('path');
 const CIFlow = require('../src/index');
 
+const { version } = require('../package.json');
+
 program
   .name('cistack')
   .description('Generate GitHub Actions CI/CD pipelines by analysing your codebase')
-  .version('2.0.0');
+  .version(version);
 
 program
   .command('generate', { isDefault: true })

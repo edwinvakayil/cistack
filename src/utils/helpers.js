@@ -5,6 +5,8 @@ const path = require('path');
 const chalk = require('chalk');
 const yaml = require('js-yaml');
 
+const { version } = require('../../package.json');
+
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
@@ -17,16 +19,8 @@ function writeFile(filePath, content) {
 }
 
 function banner() {
-  console.log('\n' + chalk.bold.cyan('  ██████╗██╗███████╗████████╗ █████╗  ██████╗██╗  ██╗'));
-  console.log(chalk.bold.cyan('  ██╔════╝██║██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝'));
-  console.log(chalk.bold.cyan('  ██║     ██║███████╗   ██║   ███████║██║     █████╔╝ '));
-  console.log(chalk.bold.cyan('  ██║     ██║╚════██║   ██║   ██╔══██║██║     ██╔═██╗ '));
-  console.log(chalk.bold.cyan('  ╚██████╗██║███████║   ██║   ██║  ██║╚██████╗██║  ██╗'));
-  console.log(chalk.bold.cyan('   ╚═════╝╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝'));
-  console.log('');
-  console.log('  ' + chalk.dim('GitHub Actions pipeline generator  ') + chalk.bold.cyan('v2.0.0'));
-  console.log('  ' + chalk.dim('─'.repeat(52)));
-  console.log('');
+  console.log('\n' + chalk.bold.cyan('  cistack ') + chalk.dim('v' + version));
+  console.log(chalk.dim('  ' + '─'.repeat(24)) + '\n');
 }
 
 /**
