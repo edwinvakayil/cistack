@@ -742,8 +742,8 @@ class WorkflowGenerator {
         steps.push(
           { name: 'Install Vercel CLI', run: 'npm install -g vercel' },
           { name: 'Pull Vercel environment', run: `vercel pull --yes --environment=${isPreview ? 'preview' : 'production'} --token=\${{ secrets.VERCEL_TOKEN }}` },
-          { name: 'Build project', run: `vercel build ${prodFlag} --token=\${{ secrets.VERCEL_TOKEN }}` },
-          { name: 'Deploy to Vercel', run: `vercel deploy --prebuilt ${prodFlag} --token=\${{ secrets.VERCEL_TOKEN }}` },
+          { name: 'Build project', run: `vercel build${prodFlag ? ' ' + prodFlag : ''} --token=\${{ secrets.VERCEL_TOKEN }}` },
+          { name: 'Deploy to Vercel', run: `vercel deploy --prebuilt${prodFlag ? ' ' + prodFlag : ''} --token=\${{ secrets.VERCEL_TOKEN }}` },
         );
         break;
       }

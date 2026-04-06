@@ -257,20 +257,60 @@ class CIFlow {
     if (!confirmed) {
       console.log(chalk.yellow('\nCustomisation mode – answer the prompts below:\n'));
 
-      const hostingChoices = ['firebase', 'vercel', 'netlify', 'aws', 'gcp', 'azure', 'heroku', 'render', 'railway', 'none'];
+      // Map lowercase choice values → exact names used in _hostingDeploySteps() switch cases
+      const HOSTING_NAME_MAP = {
+        firebase:      'Firebase',
+        vercel:        'Vercel',
+        netlify:       'Netlify',
+        aws:           'AWS',
+        gcp:           'GCP App Engine',
+        azure:         'Azure',
+        heroku:        'Heroku',
+        render:        'Render',
+        railway:       'Railway',
+        'github-pages':'GitHub Pages',
+      };
+
+      const hostingChoices = [
+        { name: 'Firebase',      value: 'firebase' },
+        { name: 'Vercel',        value: 'vercel' },
+        { name: 'Netlify',       value: 'netlify' },
+        { name: 'AWS (S3 + CloudFront)', value: 'aws' },
+        { name: 'GCP App Engine',value: 'gcp' },
+        { name: 'Azure Web App', value: 'azure' },
+        { name: 'Heroku',        value: 'heroku' },
+        { name: 'Render',        value: 'render' },
+        { name: 'Railway',       value: 'railway' },
+        { name: 'GitHub Pages',  value: 'github-pages' },
+        { name: 'None',          value: 'none' },
+      ];
+
+      // Pre-select whatever was already detected (match by canonical name)
+      const reverseMap = Object.fromEntries(
+        Object.entries(HOSTING_NAME_MAP).map(([k, v]) => [v.toLowerCase(), k])
+      );
+      const currentDefaults = config.hosting
+        .map((h) => reverseMap[h.name.toLowerCase()])
+        .filter(Boolean);
+
       const { customHosting } = await inquirer.prompt([
         {
           type: 'checkbox',
           name: 'customHosting',
           message: 'Select hosting platform(s):',
           choices: hostingChoices,
-          default: config.hosting.map((h) => h.name.toLowerCase()),
+          default: currentDefaults,
         },
       ]);
 
       config.hosting = customHosting
         .filter((h) => h !== 'none')
-        .map((h) => ({ name: h, confidence: 1.0, manual: true, secrets: [] }));
+        .map((h) => ({
+          name:       HOSTING_NAME_MAP[h] || h,   // always the correct PascalCase name
+          confidence: 1.0,
+          manual:     true,
+          secrets:    [],
+        }));
     }
 
     return config;
