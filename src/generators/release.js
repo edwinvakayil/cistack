@@ -14,6 +14,7 @@ class ReleaseGenerator {
     this.projectPath = projectPath;
     this.primaryLang = (config.languages && config.languages[0]) || { name: 'JavaScript', packageManager: 'npm', nodeVersion: '20' };
     this.extraConfig = config._config || {}; // raw cistack.config.js
+    this.defaultBranch = config.defaultBranch || config.currentBranch || null;
   }
 
   generate() {
@@ -25,7 +26,7 @@ class ReleaseGenerator {
     const nodeVersion = lang.nodeVersion || '20';
 
     const runCmd = (script) =>
-      pm === 'yarn' ? `yarn ${script}` : pm === 'pnpm' ? `pnpm ${script}` : `npm run ${script}`;
+      pm === 'yarn' ? `yarn run ${script}` : pm === 'pnpm' ? `pnpm run ${script}` : pm === 'bun' ? `bun run ${script}` : `npm run ${script}`;
 
     const installCmd =
       pm === 'npm'   ? 'npm ci' :
@@ -139,7 +140,7 @@ class ReleaseGenerator {
       default: {
         releaseSteps.push({
           name: '🚀 Release',
-          run: this.release.command || 'npm run release',
+          run: this.release.command || runCmd('release'),
           env: envVars,
         });
       }
@@ -149,7 +150,7 @@ class ReleaseGenerator {
       ? `# Required secrets: ${requiredSecrets.filter((s) => s !== 'GITHUB_TOKEN').join(', ')}\n# Add these at: Settings → Secrets and Variables → Actions\n\n`
       : '';
 
-    const branches = (this.extraConfig.branches) || ['main', 'master'];
+    const branches = this._resolveBranches(['main', 'master']);
 
     const workflow = {
       name: 'Release',
@@ -189,6 +190,16 @@ class ReleaseGenerator {
         secretsDoc +
         raw,
     };
+  }
+
+  _resolveBranches(fallback) {
+    if (Array.isArray(this.extraConfig.branches) && this.extraConfig.branches.length > 0) {
+      return [...new Set(this.extraConfig.branches)];
+    }
+    if (this.defaultBranch) {
+      return [this.defaultBranch];
+    }
+    return fallback;
   }
 }
 

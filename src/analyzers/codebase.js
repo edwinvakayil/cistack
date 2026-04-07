@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const { globSync } = require('glob');
 
 /**
@@ -25,6 +26,8 @@ class CodebaseAnalyzer {
       srcStructure: {},
       hasMonorepo: false,
       workspaces: [],
+      defaultBranch: null,
+      currentBranch: null,
     };
 
     // ── gather notable file paths (avoid giant deep scans) ──────────────
@@ -201,7 +204,37 @@ class CodebaseAnalyzer {
       info.workspaces = Array.isArray(ws) ? ws : ws.packages || [];
     }
 
+    // ── git branch hints ───────────────────────────────────────────────────
+    const gitInfo = this._detectGitBranches();
+    info.defaultBranch = gitInfo.defaultBranch;
+    info.currentBranch = gitInfo.currentBranch;
+
     return info;
+  }
+
+  _detectGitBranches() {
+    const readGit = (args) => {
+      try {
+        return execFileSync('git', args, {
+          cwd: this.root,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        }).trim();
+      } catch (_) {
+        return '';
+      }
+    };
+
+    const remoteHead = readGit(['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']);
+    const currentBranch = readGit(['symbolic-ref', '--quiet', '--short', 'HEAD']) || null;
+    const defaultBranch = remoteHead
+      ? remoteHead.replace(/^origin\//, '')
+      : currentBranch;
+
+    return {
+      defaultBranch: defaultBranch || null,
+      currentBranch,
+    };
   }
 }
 

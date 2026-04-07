@@ -82,6 +82,8 @@ class CIFlow {
         testing,
         envVars,
         monorepoPackages,
+        defaultBranch: codebaseInfo.defaultBranch,
+        currentBranch: codebaseInfo.currentBranch,
         _config: userConfig,
       });
 

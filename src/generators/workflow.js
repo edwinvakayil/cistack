@@ -21,6 +21,7 @@ class WorkflowGenerator {
     this.envVars = config.envVars || { secrets: [], public: [], all: [], sourceFile: null };
     this.monorepoPackages = config.monorepoPackages || [];
     this.extraConfig = config._config || {}; // raw cistack.config.js
+    this.defaultBranch = config.defaultBranch || config.currentBranch || null;
 
     // Convenient accessors
     this.primaryLang = this.languages[0] || { name: 'JavaScript', packageManager: 'npm', nodeVersion: '20' };
@@ -129,7 +130,7 @@ class WorkflowGenerator {
     const lang = this._langForPackage(pkg);
     const jobs = {};
 
-    const branches = this.extraConfig.branches || ['main', 'master', 'develop'];
+    const branches = this._resolveBranches(['main', 'master', 'develop']);
 
     // ── lint job ──────────────────────────────────────────────────────────
     jobs.lint = {
@@ -273,7 +274,7 @@ class WorkflowGenerator {
   // ── Monorepo root CI (matrix over all workspaces) ────────────────────────
   _buildMonorepoRootCI() {
     const lang = this.primaryLang;
-    const branches = this.extraConfig.branches || ['main', 'master', 'develop'];
+    const branches = this._resolveBranches(['main', 'master', 'develop']);
     const pkgPaths = this.monorepoPackages.map((p) => p.relativePath);
 
     const workflow = {
@@ -393,7 +394,9 @@ class WorkflowGenerator {
   _buildDeployWorkflow() {
     const h = this.primaryHosting;
     const lang = this.primaryLang;
-    const branches = this.extraConfig.branches || ['main', 'master'];
+    const branches = this._resolveBranches(['main', 'master']);
+    const productionBranches = branches.filter((b) => b !== 'develop');
+    const deployBranches = productionBranches.length > 0 ? productionBranches : branches;
     const isGHPages = h.name === 'GitHub Pages';
     const supportsPreview = ['Firebase', 'Vercel', 'Netlify'].includes(h.name);
 
@@ -468,8 +471,8 @@ class WorkflowGenerator {
 
     // Only trigger on PR if the platform supports preview deployments
     const onTrigger = supportsPreview
-      ? { push: { branches: branches.filter((b) => b !== 'develop') }, pull_request: { branches }, workflow_dispatch: {} }
-      : { push: { branches: branches.filter((b) => b !== 'develop') }, workflow_dispatch: {} };
+      ? { push: { branches: deployBranches }, pull_request: { branches }, workflow_dispatch: {} }
+      : { push: { branches: deployBranches }, workflow_dispatch: {} };
 
     const workflow = {
       name: `Deploy to ${h.name}`,
@@ -492,7 +495,7 @@ class WorkflowGenerator {
   // ══════════════════════════════════════════════════════════════════════════
 
   _buildDockerWorkflow() {
-    const branches = this.extraConfig.branches || ['main', 'master'];
+    const branches = this._resolveBranches(['main', 'master']);
     const workflow = {
       name: 'Docker Build & Push',
       on: {
@@ -571,7 +574,7 @@ class WorkflowGenerator {
 
   _buildSecurityWorkflow() {
     const lang = this.primaryLang;
-    const branches = this.extraConfig.branches || ['main', 'master'];
+    const branches = this._resolveBranches(['main', 'master']);
     const steps = [this._stepCheckout()];
 
     if (['JavaScript', 'TypeScript'].includes(lang.name)) {
@@ -833,7 +836,7 @@ class WorkflowGenerator {
     let buildDir = null;
 
     if (['JavaScript', 'TypeScript'].includes(lang.name)) {
-      buildDir = (this.frameworks[0] && this.frameworks[0].buildDir) || 'dist';
+      buildDir = (this.frameworks[0] && this.frameworks[0].buildDir) || null;
     } else if (lang.name === 'Rust') {
       buildDir = 'target/release';
     } else if (lang.name === 'Java') {
@@ -871,6 +874,16 @@ class WorkflowGenerator {
       return { matrix: { 'python-version': ['3.10', '3.11', '3.12'] }, 'fail-fast': false };
     }
     return null;
+  }
+
+  _resolveBranches(fallback) {
+    if (Array.isArray(this.extraConfig.branches) && this.extraConfig.branches.length > 0) {
+      return [...new Set(this.extraConfig.branches)];
+    }
+    if (this.defaultBranch) {
+      return [this.defaultBranch];
+    }
+    return fallback;
   }
 
   // ══════════════════════════════════════════════════════════════════════════
