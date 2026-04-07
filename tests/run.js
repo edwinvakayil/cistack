@@ -494,6 +494,64 @@ test('Frontend Lighthouse is omitted when no build job exists', () => {
   assert(!parsed.jobs.lighthouse);
 });
 
+test('Lighthouse job does not require .lighthouserc.json when the file is absent', () => {
+  const projectDir = makeTempDir();
+  writeFiles(projectDir, {
+    'package.json': json({
+      name: 'lighthouse-default-app',
+      version: '1.0.0',
+      scripts: {
+        build: 'echo build',
+      },
+    }),
+  });
+
+  const generator = new WorkflowGenerator(
+    makeJsProject({
+      frameworks: [{ name: 'React', confidence: 1, buildDir: 'dist' }],
+    }),
+    projectDir
+  );
+
+  const parsed = parseWorkflow(generator._buildCIWorkflow());
+  const lighthouseStep = parsed.jobs.lighthouse.steps.find((step) => step.name === 'Run Lighthouse on build output');
+
+  assert(lighthouseStep);
+  assert(!('configPath' in lighthouseStep.with));
+});
+
+test('Lighthouse job uses .lighthouserc.json when the file exists', () => {
+  const projectDir = makeTempDir();
+  writeFiles(projectDir, {
+    'package.json': json({
+      name: 'lighthouse-config-app',
+      version: '1.0.0',
+      scripts: {
+        build: 'echo build',
+      },
+    }),
+    '.lighthouserc.json': json({
+      ci: {
+        collect: {
+          numberOfRuns: 1,
+        },
+      },
+    }),
+  });
+
+  const generator = new WorkflowGenerator(
+    makeJsProject({
+      frameworks: [{ name: 'React', confidence: 1, buildDir: 'dist' }],
+    }),
+    projectDir
+  );
+
+  const parsed = parseWorkflow(generator._buildCIWorkflow());
+  const lighthouseStep = parsed.jobs.lighthouse.steps.find((step) => step.name === 'Run Lighthouse on build output');
+
+  assert.equal(lighthouseStep.with.configPath, './.lighthouserc.json');
+});
+
 test('E2E jobs fall back to existing jobs instead of depending on a missing build job', () => {
   const projectDir = makeTempDir();
   const generator = new WorkflowGenerator(

@@ -1,5 +1,7 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const yaml = require('js-yaml');
 const { version } = require('../../package.json');
 
@@ -45,9 +47,6 @@ class WorkflowGenerator {
   }
 
   _detectRuntimeVersions() {
-    const fs = require('fs');
-    const path = require('path');
-
     // 1. Node.js
     if (!this.primaryLang.nodeVersion) {
       const nvmrcPath = path.join(this.projectPath, '.nvmrc');
@@ -204,7 +203,7 @@ class WorkflowGenerator {
             with: {
               uploadArtifacts: true,
               temporaryPublicStorage: true,
-              configPath: './.lighthouserc.json',
+              ...this._lighthouseActionConfig(),
             },
           },
         ],
@@ -697,6 +696,11 @@ class WorkflowGenerator {
     }
 
     return steps;
+  }
+
+  _lighthouseActionConfig() {
+    const configPath = path.join(this.projectPath, '.lighthouserc.json');
+    return fs.existsSync(configPath) ? { configPath: './.lighthouserc.json' } : {};
   }
 
   _stepInstallDeps(lang) {
