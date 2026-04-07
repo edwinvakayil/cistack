@@ -414,6 +414,38 @@ test('combineWorkflows preserves workflow-specific trigger scoping in the unifie
   assert(!combined.jobs.deploy_deploy.if.includes("github.ref_name == 'develop'"));
 });
 
+test('Vercel deploy workflows validate secrets before running vercel pull', () => {
+  const projectDir = makeTempDir();
+  writeFiles(projectDir, {
+    'package.json': json({
+      name: 'vercel-secrets-app',
+      version: '1.0.0',
+      scripts: {
+        build: 'next build',
+      },
+    }),
+  });
+
+  const workflows = new WorkflowGenerator(
+    makeJsProject({
+      hosting: [{ name: 'Vercel', secrets: ['VERCEL_TOKEN', 'VERCEL_ORG_ID', 'VERCEL_PROJECT_ID'] }],
+      frameworks: [{ name: 'Next.js', confidence: 1, buildDir: '.next' }],
+    }),
+    projectDir
+  ).generate();
+
+  const deploy = parseWorkflow(workflows.find((workflow) => workflow.filename === 'deploy.yml').content);
+  const deploySteps = deploy.jobs.deploy.steps;
+  const validateStep = deploySteps.find((step) => step.name === 'Validate Vercel credentials');
+  const pullStep = deploySteps.find((step) => step.name === 'Pull Vercel environment');
+
+  assert(validateStep);
+  assert(validateStep.run.includes('Missing VERCEL_TOKEN secret'));
+  assert(validateStep.run.includes('Missing VERCEL_ORG_ID secret'));
+  assert(validateStep.run.includes('Missing VERCEL_PROJECT_ID secret'));
+  assert.equal(pullStep.run, 'vercel pull --yes --environment=production --token="$VERCEL_TOKEN"');
+});
+
 test('Single-layout monorepos still generate the root workspace matrix CI', () => {
   const projectDir = makeTempDir();
   const packages = [
@@ -526,6 +558,35 @@ test('Netlify preview configuration uses the detected production branch instead 
   );
 
   assert.equal(previewStep.with['production-branch'], 'release');
+});
+
+test('Preview deploy jobs only run for same-repo pull requests with secrets access', () => {
+  const projectDir = makeTempDir();
+  writeFiles(projectDir, {
+    'package.json': json({
+      name: 'preview-guard-app',
+      version: '1.0.0',
+      scripts: {
+        build: 'next build',
+      },
+    }),
+  });
+
+  const generator = new WorkflowGenerator(
+    makeJsProject({
+      hosting: [{ name: 'Vercel', secrets: ['VERCEL_TOKEN', 'VERCEL_ORG_ID', 'VERCEL_PROJECT_ID'] }],
+      frameworks: [{ name: 'Next.js', confidence: 1, buildDir: '.next' }],
+    }),
+    projectDir
+  );
+
+  const deploy = generator.generate().find((workflow) => workflow.filename === 'deploy.yml');
+  const parsed = parseWorkflow(deploy.content);
+
+  assert.equal(
+    parsed.jobs.preview.if,
+    "github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository"
+  );
 });
 
 test('Generic JavaScript builds no longer upload a fake dist artifact when no build directory is known', () => {

@@ -422,7 +422,7 @@ class WorkflowGenerator {
     if (previewSteps.length > 0) {
       jobs.preview = {
         name: `✨ Deploy → ${h.name} (Preview)`,
-        if: "github.event_name == 'pull_request'",
+        if: "github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository",
         'runs-on': 'ubuntu-latest',
         environment: 'preview',
         steps: [
@@ -884,19 +884,28 @@ class WorkflowGenerator {
         steps.push(
           { name: 'Install Vercel CLI', run: 'npm install -g vercel' },
           {
+            name: 'Validate Vercel credentials',
+            run: [
+              'test -n "$VERCEL_TOKEN" || (echo "Missing VERCEL_TOKEN secret. Add it in GitHub Actions secrets." && exit 1)',
+              'test -n "$VERCEL_ORG_ID" || (echo "Missing VERCEL_ORG_ID secret. Add it in GitHub Actions secrets." && exit 1)',
+              'test -n "$VERCEL_PROJECT_ID" || (echo "Missing VERCEL_PROJECT_ID secret. Add it in GitHub Actions secrets." && exit 1)',
+            ].join('\n'),
+            env: vercelEnv,
+          },
+          {
             name: 'Pull Vercel environment',
-            run: `vercel pull --yes --environment=${isPreview ? 'preview' : 'production'} --token=\${{ secrets.VERCEL_TOKEN }}`,
+            run: `vercel pull --yes --environment=${isPreview ? 'preview' : 'production'} --token="$VERCEL_TOKEN"`,
             env: vercelEnv,
           },
           {
             name: 'Build project',
-            run: `vercel build${prodFlag ? ' ' + prodFlag : ''} --token=\${{ secrets.VERCEL_TOKEN }}`,
+            run: `vercel build${prodFlag ? ' ' + prodFlag : ''} --token="$VERCEL_TOKEN"`,
             env: vercelEnv,
           },
           {
             name: 'Deploy to Vercel',
             id: 'deploy',
-            run: `vercel deploy --prebuilt${prodFlag ? ' ' + prodFlag : ''} --token=\${{ secrets.VERCEL_TOKEN }} > deployment_url.txt && echo "DEPLOYMENT_URL=$(cat deployment_url.txt)" >> $GITHUB_ENV`,
+            run: `vercel deploy --prebuilt${prodFlag ? ' ' + prodFlag : ''} --token="$VERCEL_TOKEN" > deployment_url.txt && echo "DEPLOYMENT_URL=$(cat deployment_url.txt)" >> $GITHUB_ENV`,
             env: vercelEnv,
           },
         );
