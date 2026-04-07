@@ -6,9 +6,9 @@ const yaml = require('js-yaml');
 const chalk = require('chalk');
 
 class WorkflowAnalyzer {
-  constructor(projectPath) {
+  constructor(projectPath, options = {}) {
     this.projectPath = projectPath;
-    this.workflowsDir = path.join(projectPath, '.github/workflows');
+    this.workflowsDir = options.workflowsDir || path.join(projectPath, '.github/workflows');
     
     // Latest stable versions for common actions
     this.latestVersions = {

@@ -155,7 +155,8 @@ class CIFlow {
     const spinner = ora({ text: 'Auditing existing workflows...', color: 'cyan' }).start();
     
     try {
-      const analyzer = new WorkflowAnalyzer(this.projectPath);
+      const workflowsDir = await this._resolveWorkflowsDir();
+      const analyzer = new WorkflowAnalyzer(this.projectPath, { workflowsDir });
       const results = await analyzer.audit();
       spinner.succeed(chalk.green('Audit complete'));
 
@@ -199,7 +200,8 @@ class CIFlow {
     const spinner = ora({ text: 'Upgrading actions...', color: 'cyan' }).start();
     
     try {
-      const analyzer = new WorkflowAnalyzer(this.projectPath);
+      const workflowsDir = await this._resolveWorkflowsDir();
+      const analyzer = new WorkflowAnalyzer(this.projectPath, { workflowsDir });
       const results = await analyzer.upgrade(this.dryRun);
       
       if (results.changes === 0) {
@@ -267,12 +269,21 @@ class CIFlow {
     return layout === 'split' ? 'split' : 'single';
   }
 
+  async _resolveWorkflowsDir() {
+    const configLoader = new ConfigLoader(this.projectPath);
+    const userConfig = await configLoader.load();
+    const relativeOutputDir = userConfig.outputDir || '.github/workflows';
+    return path.join(this.projectPath, relativeOutputDir);
+  }
+
   _workflowCountLabel(count) {
     return `${count} workflow file${count === 1 ? '' : 's'}`;
   }
 
   _displayWorkflowPath(filename) {
-    return path.posix.join('.github/workflows', filename);
+    const filePath = path.join(this.outputDir, filename);
+    const relativePath = path.relative(this.projectPath, filePath) || filename;
+    return relativePath.split(path.sep).join(path.posix.sep);
   }
 
   async _interactiveConfirm(config) {
@@ -365,7 +376,7 @@ class CIFlow {
     console.log('\n' + chalk.yellow('── DRY RUN – files not written ──\n'));
 
     for (const wf of workflows) {
-      console.log(chalk.bold.cyan(`\n📄 .github/workflows/${wf.filename}`));
+      console.log(chalk.bold.cyan(`\n📄 ${this._displayWorkflowPath(wf.filename)}`));
       console.log(chalk.dim('─'.repeat(60)));
       console.log(wf.content);
     }

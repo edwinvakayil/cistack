@@ -2,7 +2,7 @@
 
 > Generate GitHub Actions CI/CD pipelines by analyzing the codebase you already have.
 
-`cistack` scans your project, detects the stack, and writes production-ready GitHub Actions workflows for CI, deployment, Docker, security, and releases. It is designed for real repos, not toy demos: it reads lock files, framework signals, release config, monorepo workspaces, hosting config, and Git branch metadata before generating YAML.
+`cistack` scans your project, detects the stack, and writes production-ready GitHub Actions workflows for CI, deployment, Docker, and releases. It is designed for real repos, not toy demos: it reads lock files, framework signals, release config, monorepo workspaces, hosting config, and Git branch metadata before generating YAML.
 
 ## Why cistack
 
@@ -55,7 +55,7 @@ npx cistack generate --no-prompt
 npx cistack audit
 ```
 
-This checks `.github/workflows` for issues like missing concurrency blocks, outdated actions, old Node versions, and missing dependency caching.
+This checks your generated workflow directory for issues like missing concurrency blocks, outdated actions, old Node versions, and missing dependency caching. If you set `outputDir` in `cistack.config.js`, `audit` and `upgrade` will use that directory too.
 
 ### Upgrade workflow actions
 
@@ -78,11 +78,11 @@ This writes `cistack.config.js` with the supported override keys.
 
 ### `pipeline.yml`
 
-By default, `cistack` now generates a single GitHub Actions workflow that combines CI, deploy, Docker, security, and release jobs into one place so teams can track the whole pipeline from one file.
+By default, `cistack` now generates a single GitHub Actions workflow that combines CI, deploy, Docker, and release jobs into one place so teams can track the whole pipeline from one file.
 
-- Includes lint, test, build, E2E, deploy, Docker, security, and release jobs when those parts of the stack are detected
+- Includes lint, test, build, E2E, deploy, Docker, and release jobs when those parts of the stack are detected
 - Uses the detected default branch or your configured `branches`
-- Keeps preview deploys, release jobs, and scheduled security scans in the same workflow file
+- Keeps preview deploys and release jobs in the same workflow file
 - Documents required secrets in the file header
 
 ### `dependabot.yml`
@@ -99,7 +99,7 @@ module.exports = {
 };
 ```
 
-In split mode, `cistack` writes separate `ci.yml`, `deploy.yml`, `docker.yml`, `security.yml`, and `release.yml` files again.
+In split mode, `cistack` writes separate `ci.yml`, `deploy.yml`, `docker.yml`, and `release.yml` files again.
 
 ## Supported detection
 
