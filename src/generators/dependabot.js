@@ -6,7 +6,7 @@ const yaml = require('js-yaml');
  * Generates a .github/dependabot.yml based on detected ecosystems.
  *
  * Supported ecosystems:
- *   npm, pip, cargo, bundler, go, maven, gradle, github-actions, composer, docker
+ *   bun, npm, pip, cargo, bundler, go, maven, gradle, github-actions, composer, docker
  */
 class DependabotGenerator {
   constructor(codebaseInfo) {
@@ -18,12 +18,32 @@ class DependabotGenerator {
 
   generate() {
     const updates = [];
+    const hasDeps =
+      Object.keys(this.pkg.dependencies || {}).length > 0 ||
+      Object.keys(this.pkg.devDependencies || {}).length > 0;
+    const hasBunLock = this.lockFiles.has('bun.lock');
+
+    // ── bun ────────────────────────────────────────────────────────────────
+    if (hasBunLock) {
+      updates.push({
+        'package-ecosystem': 'bun',
+        directory: '/',
+        schedule: { interval: 'weekly', day: 'monday' },
+        'open-pull-requests-limit': 10,
+        groups: {
+          'dev-dependencies': {
+            'dependency-type': 'development',
+            'update-types': ['minor', 'patch'],
+          },
+        },
+      });
+    }
 
     // ── npm ────────────────────────────────────────────────────────────────
-    if (this.pkg.dependencies || this.pkg.devDependencies ||
+    if (!hasBunLock && (hasDeps ||
         this.lockFiles.has('package-lock.json') ||
         this.lockFiles.has('yarn.lock') ||
-        this.lockFiles.has('pnpm-lock.yaml')) {
+        this.lockFiles.has('pnpm-lock.yaml'))) {
       updates.push({
         'package-ecosystem': 'npm',
         directory: '/',
@@ -112,6 +132,7 @@ class DependabotGenerator {
 
     // ── Docker ─────────────────────────────────────────────────────────────
     if (this.configFiles.has('Dockerfile') ||
+        this.configFiles.has('Dockerfile.prod') ||
         this.configFiles.has('docker-compose.yml') ||
         this.configFiles.has('docker-compose.yaml')) {
       updates.push({

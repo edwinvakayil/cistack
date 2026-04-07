@@ -80,15 +80,22 @@ class CIFlow {
         frameworks,
         languages,
         testing,
+        releaseInfo,
         envVars,
         monorepoPackages,
+        lockFiles: codebaseInfo.lockFiles,
         defaultBranch: codebaseInfo.defaultBranch,
         currentBranch: codebaseInfo.currentBranch,
         _config: userConfig,
       });
 
       // ── 5. Print summary ───────────────────────────────────────────────
-      this._printSummary(finalConfig, finalConfig.releaseInfo || releaseInfo, envVars, monorepoPackages);
+      this._printSummary(
+        finalConfig,
+        finalConfig.releaseInfo || releaseInfo,
+        finalConfig.envVars || envVars,
+        finalConfig.monorepoPackages || monorepoPackages
+      );
 
       // ── 6. Optional interactive confirmation ──────────────────────────
       if (this.prompt) {

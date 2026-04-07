@@ -13,6 +13,7 @@ class ReleaseGenerator {
     this.config = config;             // full detected + merged stack config
     this.projectPath = projectPath;
     this.primaryLang = (config.languages && config.languages[0]) || { name: 'JavaScript', packageManager: 'npm', nodeVersion: '20' };
+    this.lockFiles = new Set(config.lockFiles || []);
     this.extraConfig = config._config || {}; // raw cistack.config.js
     this.defaultBranch = config.defaultBranch || config.currentBranch || null;
   }
@@ -29,9 +30,9 @@ class ReleaseGenerator {
       pm === 'yarn' ? `yarn run ${script}` : pm === 'pnpm' ? `pnpm run ${script}` : pm === 'bun' ? `bun run ${script}` : `npm run ${script}`;
 
     const installCmd =
-      pm === 'npm'   ? 'npm ci' :
-      pm === 'yarn'  ? 'yarn install --frozen-lockfile' :
-      pm === 'pnpm'  ? 'pnpm install --frozen-lockfile' :
+      pm === 'npm'   ? (this.lockFiles.has('package-lock.json') ? 'npm ci' : 'npm install') :
+      pm === 'yarn'  ? (this.lockFiles.has('yarn.lock') ? 'yarn install --frozen-lockfile' : 'yarn install') :
+      pm === 'pnpm'  ? (this.lockFiles.has('pnpm-lock.yaml') ? 'pnpm install --frozen-lockfile' : 'pnpm install') :
                        'bun install';
 
     // ── common setup steps ────────────────────────────────────────────────
@@ -42,13 +43,16 @@ class ReleaseGenerator {
     if (pm === 'pnpm') {
       setupSteps.push({ name: 'Install pnpm', uses: 'pnpm/action-setup@v3', with: { version: 'latest' } });
     }
+    if (pm === 'bun') {
+      setupSteps.push({ name: 'Set up Bun', uses: 'oven-sh/setup-bun@v2', with: { 'bun-version': 'latest' } });
+    }
 
     setupSteps.push({
       name: 'Set up Node.js',
       uses: 'actions/setup-node@v4',
       with: {
         'node-version': nodeVersion,
-        cache: pm === 'yarn' ? 'yarn' : pm === 'pnpm' ? 'pnpm' : 'npm',
+        cache: pm === 'yarn' ? 'yarn' : pm === 'pnpm' ? 'pnpm' : pm === 'npm' ? 'npm' : undefined,
         ...(this.release.publishToNpm ? { 'registry-url': 'https://registry.npmjs.org' } : {}),
       },
     });

@@ -187,7 +187,7 @@ class HostingDetector {
       name: 'GCP App Engine',
       confidence,
       deployCommand: 'gcloud app deploy',
-      secrets: ['GCP_PROJECT_ID', 'GCP_SA_KEY'],
+      secrets: ['GCP_SA_KEY'],
       reasons,
     };
   }
@@ -212,7 +212,10 @@ class HostingDetector {
   _checkAzure() {
     let confidence = 0;
     const reasons = [];
-    if (this.files.has('.azure/pipelines.yml')) { confidence += 0.5; reasons.push('.azure/pipelines.yml found'); }
+    if (this.files.has('.azure/pipelines.yml') || this.files.has('azure/pipelines.yml')) {
+      confidence += 0.5;
+      reasons.push('azure/pipelines.yml found');
+    }
     if (this.deps['@azure/core-http']) { confidence += 0.2; reasons.push('azure core-http found'); }
     return {
       name: 'Azure',
@@ -243,7 +246,10 @@ class HostingDetector {
   _checkDocker() {
     let confidence = 0;
     const reasons = [];
-    if (this.configs.has('Dockerfile')) { confidence += 0.5; reasons.push('Dockerfile found'); }
+    if (this.configs.has('Dockerfile') || this.configs.has('Dockerfile.prod')) {
+      confidence += 0.5;
+      reasons.push(this.configs.has('Dockerfile') ? 'Dockerfile found' : 'Dockerfile.prod found');
+    }
     if (this.configs.has('docker-compose.yml') || this.configs.has('docker-compose.yaml')) { confidence += 0.3; reasons.push('docker-compose.yml found'); }
     return {
       name: 'Docker',

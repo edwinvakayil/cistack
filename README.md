@@ -1,186 +1,258 @@
 # cistack
 
-> Automatically generate GitHub Actions CI/CD pipelines by analysing your codebase
+> Generate GitHub Actions CI/CD pipelines by analyzing the codebase you already have.
 
-`cistack` scans your project directory and produces production-grade GitHub Actions workflow YAML files. It detects your language, framework, testing tools, and hosting platform — then writes the best pipeline for your stack.
+`cistack` scans your project, detects the stack, and writes production-ready GitHub Actions workflows for CI, deployment, Docker, security, and releases. It is designed for real repos, not toy demos: it reads lock files, framework signals, release config, monorepo workspaces, hosting config, and Git branch metadata before generating YAML.
 
----
+## Why cistack
 
-## Features
-
-- 🔍 **Deep codebase analysis** — reads `package.json`, lock files, config files, and directory structure
-- 🧠 **Smart detection** — identifies 30+ frameworks, 12 languages, 12+ testing tools, and 10+ hosting platforms
-- ⚡ **Native Cache support** — speeds up pipelines by 2–4min using native caching for npm, pip, go, cargo, maven, gradle, and bundler
-- ✨ **PR Preview Deploys** — automatic preview environments for Vercel and Netlify on every pull request
-- 🚀 **Hosting auto-detect** — Firebase, Vercel, Netlify, AWS, GCP, Azure, Heroku, Render, Railway, GitHub Pages, Docker
-- 🛡️ **Workflow Audit & Upgrade** — analyse existing `.github/workflows` for outdated actions and missing best practices
-- 🏗️ **Multi-workflow output** — generates separate `ci.yml`, `deploy.yml`, `docker.yml`, and `security.yml`
-- 🔒 **Security built-in** — CodeQL analysis + dependency auditing on every pipeline
-- 📦 **Monorepo aware** — detects Turborepo, Nx, Lerna, pnpm workspaces (supports per-package workflows)
-- ✅ **Interactive mode** — confirms detected settings before writing files
-- 🎯 **Zero config** — works out of the box with `cistack.config.js` for overrides
-
----
+- Detects languages, frameworks, testing tools, hosting providers, and release tooling automatically
+- Uses your repository's default Git branch when available instead of assuming `main`
+- Supports monorepos, per-package workflows, and package-manager-aware commands
+- Generates ecosystem-aware Dependabot config, including Bun when `bun.lock` is present
+- Smart-merges generated workflows with existing files instead of blindly overwriting them
+- Generates deploy pipelines for Vercel, Netlify, Firebase, GitHub Pages, AWS, Azure, Heroku, Render, and Railway
+- Ships with built-in workflow audit and upgrade commands
+- Includes typed `cistack.config.js` support through `index.d.ts`
+- Backed by an automated regression suite covering branch handling, release detection, smart merge behavior, monorepo package scripts, and CLI smoke tests
 
 ## Installation
 
 ```bash
-# Run without installing (recommended for one-off use)
+# One-off usage
 npx cistack
 
-# Install globally
+# Global install
 npm install -g cistack
 ```
 
----
+`cistack` supports Node.js 16+, and the project itself is continuously verified on Node.js 18, 20, and 22 in GitHub Actions.
 
-## Usage
+## CLI Usage
 
-### Generate Pipelines
-Analyze your stack and generate best-practice workflows.
+### Generate workflows
+
+`generate` is the default command, so both of these work:
+
 ```bash
-# In your project directory
 npx cistack
-
-# Show reasoning for detected stack
-npx cistack --explain
-
-# Specify a project path
-npx cistack --path /path/to/project
-
-# Custom output directory
-npx cistack --output .github/workflows
-
-# Dry run (print YAML without writing files)
-npx cistack --dry-run
+npx cistack generate
 ```
 
-### Audit Existing Workflows
-Analyze your current `.github/workflows` folder for outdated actions or missing features.
+Common options:
+
+```bash
+npx cistack generate --path /path/to/project
+npx cistack generate --dry-run
+npx cistack generate --explain
+npx cistack generate --output .github/workflows
+npx cistack generate --no-prompt
+```
+
+### Audit existing workflows
+
 ```bash
 npx cistack audit
 ```
 
-### Automatic Upgrade
-Automatically bump all action versions (e.g., `actions/checkout@v3` → `@v4`) across all your workflow files to the latest stable releases.
+This checks `.github/workflows` for issues like missing concurrency blocks, outdated actions, old Node versions, and missing dependency caching.
+
+### Upgrade workflow actions
+
 ```bash
 npx cistack upgrade
+npx cistack upgrade --dry-run
 ```
 
-### Initialization
-Create a `cistack.config.js` to override auto-detected settings.
+This updates known GitHub Actions to their latest supported stable versions.
+
+### Create a starter config
+
 ```bash
 npx cistack init
 ```
 
----
+This writes `cistack.config.js` with the supported override keys.
 
-## Flags
+## What gets generated
 
-- `--explain` — Show detailed reasoning for every detection (build trust)
-- `--dry-run` — Print YAML to terminal without writing to disk
-- `--force` — Overwrite existing files instead of smart-merging
-- `--no-prompt` — Skip interactive confirmation
-- `--verbose` — Show raw analysis data
-- `--path <dir>` — Project root directory
-- `--output <dir>` — Workflow output directory (default: `.github/workflows`)
+### `ci.yml`
 
----
+Continuous integration for linting, tests, builds, coverage upload, and optional E2E jobs.
 
-## Detected Hosting Platforms
+- Runs on pushes and pull requests
+- Uses the detected default branch or your configured `branches`
+- Uses runtime matrices where appropriate
+- Uses package-manager-aware install and script commands
 
-| Platform | Detection Signal |
-|---|---|
-| **Firebase** | `firebase.json`, `.firebaserc`, `firebase-tools` dep |
-| **Vercel** | `vercel.json`, `.vercel` dir, `vercel` dep |
-| **Netlify** | `netlify.toml`, `_redirects`, `netlify-cli` dep |
-| **GitHub Pages** | `gh-pages` dep, `github.io` homepage in `package.json` |
-| **AWS** | `serverless.yml`, `appspec.yml`, `cdk.json`, `aws-sdk` dep |
-| **GCP App Engine** | `app.yaml` |
-| **Azure** | `azure/pipelines.yml`, `@azure/*` deps |
-| **Heroku** | `Procfile`, `heroku.yml` |
-| **Render** | `render.yaml` |
-| **Railway** | `railway.json`, `railway.toml` |
-| **Docker** | `Dockerfile`, `docker-compose.yml` |
+### `deploy.yml`
 
----
+Continuous deployment for the primary hosting provider.
 
-## Detected Frameworks
+- Runs on production pushes plus manual dispatch
+- Uses preview deployments on pull requests for providers that support them cleanly
+- Documents the required secrets in the file header
+- Avoids empty push branch lists when a repo is `develop`-only
 
-Next.js, Nuxt, SvelteKit, Remix, Astro, Vite, React, Vue, Angular, Svelte, Gatsby,
-Express, Fastify, NestJS, Hono, Koa, tRPC,
-Django, Flask, FastAPI,
-Ruby on Rails,
-Spring Boot,
-Laravel,
-Go (gin), Rust (Cargo)
+### `docker.yml`
 
----
+Builds and optionally pushes Docker images to GHCR.
 
-## Detected Testing Tools
+- Runs on configured branches, pull requests, and semantic version tags
+- Uses Buildx and GitHub Actions cache
 
-| Tool | Type |
-|---|---|
-| Jest, Vitest, Mocha | Unit |
-| Cypress, Playwright | E2E |
-| Pytest | Python unit |
-| RSpec | Ruby unit |
-| Go Test | Go unit |
-| Cargo Test | Rust unit |
-| PHPUnit | PHP unit |
-| JUnit/Maven | JVM unit |
-| Storybook | Visual |
+### `security.yml`
 
----
+Dependency audit plus CodeQL analysis.
 
-## Generated Workflows
+- Runs on push, pull request, and a weekly schedule
+- Uses the detected default branch or configured branch overrides
 
-### `ci.yml` — Continuous Integration
-Runs on every push and pull request:
-1. **Lint** — ESLint, TypeScript type-check, formatter check
-2. **Test** — unit tests with coverage upload (matrix across Node versions)
-3. **Build** — production build, artifact upload
-4. **E2E** — Cypress / Playwright (if detected)
-5. **Caching** — Full dependency caching for faster runs
+### `release.yml`
 
-### `deploy.yml` — Continuous Deployment
-Triggers on push to `main`/`master` + manual dispatch:
-- Platform-specific deploy using official GitHub Actions
-- **PR Preview Deploys** — automatic previews for Vercel and Netlify pull requests
-- Proper secret references documented in the file header
+Generated when `semantic-release`, `changesets`, `release-it`, `standard-version`, or a custom release command is detected or configured.
 
-### `docker.yml` — Docker Build & Push
-Triggers on push to `main` and version tags:
-- Multi-platform build via Docker Buildx
-- Pushes to GitHub Container Registry (GHCR)
-- Build cache via GitHub Actions cache (GHA)
+- Uses the detected package manager for release commands
+- Respects configured branches and detected default branch
+- Documents additional required secrets such as `NPM_TOKEN`
 
-### `security.yml` — Security Audit
-Runs on push, PRs, and weekly schedule:
-- Dependency vulnerability audit (npm audit / safety / cargo audit)
-- GitHub CodeQL analysis for the detected language
+## Supported detection
 
----
+### Hosting
 
-## Required Secrets
+- Firebase
+- Vercel
+- Netlify
+- GitHub Pages
+- AWS
+- GCP App Engine
+- Azure
+- Heroku
+- Render
+- Railway
+- Docker
 
-After generating, add the required secrets to your repository at:
-`Settings → Secrets and variables → Actions`
+### Frameworks
 
-Each generated `deploy.yml` has a comment at the top listing the exact secrets needed.
+- Next.js
+- Nuxt
+- SvelteKit
+- Remix
+- Astro
+- Vite
+- React
+- Vue
+- Angular
+- Svelte
+- Gatsby
+- Express
+- Fastify
+- NestJS
+- Hono
+- Koa
+- Django
+- Flask
+- FastAPI
+- Rails
+- Spring Boot
+- Laravel
+- Go
+- Rust
 
----
+### Testing tools
 
-## Examples
+- Jest
+- Vitest
+- Mocha
+- Cypress
+- Playwright
+- Pytest
+- RSpec
+- Go test
+- Cargo test
+- PHPUnit
+- Maven / JUnit
+- Storybook
 
-**Next.js + Vercel project with Audit:**
-```bash
-npx cistack audit       # Check existing workflows
-npx cistack upgrade     # Update versions to v4
-npx cistack generate    # Refresh with latest caching & previews
+## Configuration
+
+Create `cistack.config.js` when you want to override detection:
+
+```js
+/** @type {import('cistack').Config} */
+module.exports = {
+  nodeVersion: '20',
+  packageManager: 'pnpm',
+  branches: ['main', 'staging'],
+  hosting: ['Vercel'],
+  outputDir: '.github/workflows',
+
+  cache: {
+    npm: true,
+    cargo: true,
+    pip: true,
+  },
+
+  monorepo: {
+    perPackage: true,
+  },
+
+  release: {
+    tool: 'semantic-release',
+  },
+};
 ```
 
----
+Supported top-level config keys:
+
+- `nodeVersion`
+- `packageManager`
+- `hosting`
+- `frameworks`
+- `testing`
+- `branches`
+- `cache`
+- `monorepo`
+- `release`
+- `secrets`
+- `outputDir`
+
+Branch behavior:
+
+- If `branches` is set in config, `cistack` uses it exactly
+- Otherwise it reads the repository's default branch from Git metadata when available
+- If Git metadata is unavailable, it falls back to safe defaults like `main`, `master`, and `develop` depending on the workflow type
+
+## Secrets
+
+Generated deploy and release workflows document the secrets they need at the top of each file. Add them in:
+
+`GitHub -> Settings -> Secrets and variables -> Actions`
+
+## Development and Quality
+
+The project now includes a regression suite for the areas that were historically the easiest to break:
+
+- config override handling
+- default branch detection
+- deploy branch selection
+- Netlify production branch handling
+- smart merge behavior
+- monorepo per-package build script lookup
+- release config detection
+- release workflow generation
+- CLI dry-run smoke testing
+
+Run the checks locally:
+
+```bash
+npm test
+npm run test:smoke
+node bin/ciflow.js audit --path .
+node bin/ciflow.js upgrade --path . --dry-run
+```
+
+If you are using the published package, the executable is `cistack`. In this repository, the local entrypoint is `bin/ciflow.js`.
 
 ## License
 

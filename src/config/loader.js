@@ -13,6 +13,7 @@ const chalk = require('chalk');
  *   packageManager   – override detected PM: 'npm'|'yarn'|'pnpm'|'bun'
  *   hosting          – array of hosting names to force e.g. ['Firebase']
  *   branches         – branches to run CI on e.g. ['main', 'staging']
+ *                      (default: detected git default branch, then main/master/develop)
  *   cache            – { npm: bool, cargo: bool, pip: bool, ... } enable/disable caches
  *   monorepo         – { perPackage: bool } generate one file per workspace
  *   release          – { tool: 'semantic-release'|'changesets'|'standard-version'|'release-it' }
@@ -171,8 +172,8 @@ class ConfigLoader {
 
     // 2b. Release override
     if (cfg.release) {
-       // If release is provided as a string, wrap it
-       result.releaseInfo = typeof cfg.release === 'string' ? { tool: cfg.release } : cfg.release;
+      const releaseOverride = typeof cfg.release === 'string' ? { tool: cfg.release } : cfg.release;
+      result.releaseInfo = { ...(result.releaseInfo || {}), ...releaseOverride };
     }
 
     // 3. Framework overrides
@@ -195,6 +196,16 @@ class ConfigLoader {
         type: 'unit', // default
         command: runScript('test') // fallback
       }));
+    }
+
+    // 5. Extra documented secrets
+    if (cfg.secrets) {
+      const extraSecrets = Array.isArray(cfg.secrets) ? cfg.secrets : [cfg.secrets];
+      const envVars = result.envVars || { secrets: [], public: [], all: [], sourceFile: null };
+      result.envVars = {
+        ...envVars,
+        secrets: [...new Set([...(envVars.secrets || []), ...extraSecrets])],
+      };
     }
 
     // Pass through raw extras for generators to consume

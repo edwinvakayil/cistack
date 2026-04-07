@@ -130,7 +130,7 @@ class ReleaseDetector {
     const lockFiles = this.info.lockFiles || [];
     if (lockFiles.includes('pnpm-lock.yaml')) return 'pnpm';
     if (lockFiles.includes('yarn.lock')) return 'yarn';
-    if (lockFiles.includes('bun.lockb')) return 'bun';
+    if (lockFiles.includes('bun.lock') || lockFiles.includes('bun.lockb')) return 'bun';
     return 'npm';
   }
 

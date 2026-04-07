@@ -87,7 +87,7 @@ module.exports = {
   // nodeVersion: '20',          // Override detected Node.js version
   // packageManager: 'pnpm',    // 'npm' | 'yarn' | 'pnpm' | 'bun'
   // hosting: ['Firebase'],      // Force a specific hosting provider
-  // branches: ['main', 'staging'], // CI branches (default: main, master, develop)
+  // branches: ['main', 'staging'], // CI branches (default: detected git default branch, then main/master/develop)
   // outputDir: '.github/workflows', // Where to write workflow files
 
   // cache: {

@@ -45,7 +45,7 @@ class FrameworkDetector {
       // Ruby
       this._checkRuby('Rails', 'rails'),
       // Java / Kotlin
-      this._checkJVM('Spring Boot', 'spring-boot'),
+      this._checkJVM('Spring Boot', ['spring-boot', 'org.springframework.boot']),
       // PHP
       this._checkComposer('Laravel', 'laravel/framework'),
       // Go
@@ -117,22 +117,24 @@ class FrameworkDetector {
     return confidence > 0 ? { name, confidence, isServer: true, isRuby: true, reasons } : null;
   }
 
-  _checkJVM(name, keyword) {
+  _checkJVM(name, keywords) {
     const gradlePath = path.join(this.root, 'build.gradle');
+    const gradleKtsPath = path.join(this.root, 'build.gradle.kts');
     const pomPath = path.join(this.root, 'pom.xml');
     let confidence = 0;
     let foundIn = '';
-    for (const p of [gradlePath, pomPath]) {
+    const candidates = Array.isArray(keywords) ? keywords : [keywords];
+    for (const p of [gradlePath, gradleKtsPath, pomPath]) {
       if (fs.existsSync(p)) {
         const content = fs.readFileSync(p, 'utf8').toLowerCase();
-        if (content.includes(keyword.toLowerCase())) { 
-          confidence = 0.9; 
+        if (candidates.some((keyword) => content.includes(keyword.toLowerCase()))) {
+          confidence = 0.9;
           foundIn = path.basename(p);
-          break; 
+          break;
         }
       }
     }
-    const reasons = confidence > 0 ? [`found ${keyword} in ${foundIn}`] : [];
+    const reasons = confidence > 0 ? [`found ${name} markers in ${foundIn}`] : [];
     return confidence > 0 ? { name, confidence, isServer: true, isJVM: true, reasons } : null;
   }
 

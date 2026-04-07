@@ -68,6 +68,7 @@ class CodebaseAnalyzer {
       'package-lock.json',
       'yarn.lock',
       'pnpm-lock.yaml',
+      'bun.lock',
       'bun.lockb',
       'Pipfile.lock',
       'poetry.lock',

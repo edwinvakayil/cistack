@@ -25,6 +25,7 @@ class WorkflowAnalyzer {
       'docker/build-push-action': 'v5',
       'docker/metadata-action': 'v5',
       'pnpm/action-setup': 'v3',
+      'oven-sh/setup-bun': 'v2',
       'codecov/codecov-action': 'v4',
       'github/codeql-action/init': 'v3',
       'github/codeql-action/analyze': 'v3',

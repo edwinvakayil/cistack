@@ -3,12 +3,14 @@
   "version": "3.2.0",
   "description": "Automatically generate GitHub Actions CI/CD pipelines by analysing your codebase",
   "main": "src/index.js",
+  "types": "index.d.ts",
   "bin": {
     "cistack": "./bin/ciflow.js"
   },
   "scripts": {
     "start": "node bin/ciflow.js",
-    "test": "node bin/ciflow.js --dry-run --no-prompt"
+    "test": "node tests/run.js",
+    "test:smoke": "node bin/ciflow.js generate --path . --dry-run --no-prompt"
   },
   "keywords": [
     "github-actions",

@@ -78,7 +78,7 @@ class LanguageDetector {
     if (lang === 'JavaScript' || lang === 'TypeScript') {
       if (lockFiles.includes('pnpm-lock.yaml')) return 'pnpm';
       if (lockFiles.includes('yarn.lock')) return 'yarn';
-      if (lockFiles.includes('bun.lockb')) return 'bun';
+      if (lockFiles.includes('bun.lock') || lockFiles.includes('bun.lockb')) return 'bun';
       return 'npm';
     }
     if (lang === 'Python') {
@@ -89,7 +89,7 @@ class LanguageDetector {
     if (lang === 'Ruby') return 'bundler';
     if (lang === 'Go') return 'go mod';
     if (lang === 'Rust') return 'cargo';
-    if (lang === 'Java') {
+    if (lang === 'Java' || lang === 'Kotlin') {
       if (fs.existsSync(path.join(this.root, 'pom.xml'))) return 'maven';
       return 'gradle';
     }
