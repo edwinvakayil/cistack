@@ -1,6 +1,6 @@
 {
   "name": "cistack",
-  "version": "5.4.0",
+  "version": "5.5.0",
   "description": "Automatically generate GitHub Actions CI/CD pipelines by analysing your codebase",
   "main": "src/index.js",
   "types": "index.d.ts",
