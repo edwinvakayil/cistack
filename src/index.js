@@ -124,7 +124,7 @@ class CIFlow {
       if (this._workflowLayout(finalConfig) !== 'split') {
         workflows = [combineWorkflows(workflows, { config: finalConfig, releaseInfo: combinedReleaseInfo })];
       }
-      spinner.succeed(chalk.green(`Generated ${workflows.length} workflow file(s)`));
+      spinner.succeed(chalk.green(`Generated ${this._workflowCountLabel(workflows.length)}`));
 
       // ── 10. Write files ────────────────────────────────────────────────
       if (this.dryRun) {
@@ -136,7 +136,11 @@ class CIFlow {
 
       console.log('\n' + chalk.bold.green('✅  Done! Your GitHub Actions pipeline is ready.'));
       if (!this.dryRun) {
-        console.log(chalk.dim(`   Workflows → ${this.outputDir}`));
+        if (workflows.length === 1) {
+          console.log(chalk.dim(`   Pipeline → ${path.join(this.outputDir, workflows[0].filename)}`));
+        } else {
+          console.log(chalk.dim(`   Workflows → ${this.outputDir}`));
+        }
         console.log(chalk.dim(`   Dependabot → ${path.join(this.projectPath, '.github', 'dependabot.yml')}\n`));
       }
     } catch (err) {
@@ -263,6 +267,14 @@ class CIFlow {
     return layout === 'split' ? 'split' : 'single';
   }
 
+  _workflowCountLabel(count) {
+    return `${count} workflow file${count === 1 ? '' : 's'}`;
+  }
+
+  _displayWorkflowPath(filename) {
+    return path.posix.join('.github/workflows', filename);
+  }
+
   async _interactiveConfirm(config) {
     const { confirmed } = await inquirer.prompt([
       {
@@ -377,11 +389,11 @@ class CIFlow {
         const { content: merged, changes } = smartMergeWorkflow(existing, wf.content);
 
         if (changes.length === 0) {
-          console.log(chalk.dim(`  ○ No changes: ${wf.filename}`));
+          console.log(chalk.dim(`  ○ No changes: ${this._displayWorkflowPath(wf.filename)}`));
           continue;
         }
 
-        console.log(chalk.yellow(`  ↻ Smart-merged: ${wf.filename}`));
+        console.log(chalk.yellow(`  ↻ Smart-merged: ${this._displayWorkflowPath(wf.filename)}`));
         for (const c of changes) {
           console.log(chalk.dim(`    • ${c}`));
         }
@@ -389,10 +401,10 @@ class CIFlow {
         writeFile(filePath, merged);
       } else if (exists && this.force) {
         writeFile(filePath, wf.content);
-        console.log(chalk.green(`  ✔ Overwritten:  ${wf.filename}`));
+        console.log(chalk.green(`  ✔ Overwritten:  ${this._displayWorkflowPath(wf.filename)}`));
       } else {
         writeFile(filePath, wf.content);
-        console.log(chalk.green(`  ✔ Written:      ${wf.filename}`));
+        console.log(chalk.green(`  ✔ Written:      ${this._displayWorkflowPath(wf.filename)}`));
       }
     }
   }

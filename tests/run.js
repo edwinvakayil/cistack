@@ -213,6 +213,33 @@ test('Dependabot skips empty npm manifests and uses the bun ecosystem for bun.lo
   assert(!bunDependabot.updates.some((entry) => entry['package-ecosystem'] === 'npm'));
 });
 
+test('Dependabot groups GitHub Actions updates into a single pull request', async () => {
+  const projectDir = makeTempDir();
+  writeFiles(projectDir, {
+    '.github/workflows/ci.yml': [
+      'name: CI',
+      'jobs:',
+      '  test:',
+      '    runs-on: ubuntu-latest',
+      '    steps:',
+      '      - uses: actions/checkout@v4',
+      '      - uses: actions/setup-node@v4',
+      '      - uses: actions/upload-artifact@v4',
+    ].join('\n'),
+  });
+
+  const info = await new CodebaseAnalyzer(projectDir).analyse();
+  const dependabot = parseWorkflow(new DependabotGenerator(info).generate().content);
+  const gha = dependabot.updates.find((entry) => entry['package-ecosystem'] === 'github-actions');
+
+  assert(gha);
+  assert.deepEqual(gha.groups, {
+    'github-actions-updates': {
+      patterns: ['*'],
+    },
+  });
+});
+
 test('GCP App Engine detection documents only the secrets the generated deploy flow uses', async () => {
   const projectDir = makeTempDir();
   writeFiles(projectDir, {
@@ -881,6 +908,29 @@ test('CLI smoke test still generates workflows in dry-run mode', () => {
   assert(output.includes('.github/dependabot.yml'));
   assert(output.includes('Unified Pipeline'));
   assert(output.includes('Done! Your GitHub Actions pipeline is ready.'));
+});
+
+test('CLI write output shows the pipeline file path in single-layout mode', () => {
+  const projectDir = makeTempDir();
+  writeFiles(projectDir, {
+    'package.json': json({
+      name: 'cli-write-app',
+      version: '1.0.0',
+      scripts: {
+        test: 'echo ok',
+      },
+    }),
+  });
+
+  const output = execFileSync(process.execPath, ['bin/ciflow.js', 'generate', '--path', projectDir, '--no-prompt'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  assert(output.includes('✔ Written:      .github/workflows/pipeline.yml'));
+  assert(output.includes(`Pipeline → ${path.join(projectDir, '.github', 'workflows', 'pipeline.yml')}`));
+  assert(output.includes(`Dependabot → ${path.join(projectDir, '.github', 'dependabot.yml')}`));
 });
 
 test('CLI supports opting back into split workflow files', () => {

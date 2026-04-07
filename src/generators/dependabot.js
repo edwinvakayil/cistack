@@ -150,6 +150,11 @@ class DependabotGenerator {
       directory: '/',
       schedule: { interval: 'weekly', day: 'monday' },
       'open-pull-requests-limit': 10,
+      groups: {
+        'github-actions-updates': {
+          patterns: ['*'],
+        },
+      },
     });
 
     const doc = { version: 2, updates };
