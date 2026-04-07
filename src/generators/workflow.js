@@ -23,6 +23,7 @@ class WorkflowGenerator {
     this.lockFiles = new Set(config.lockFiles || []);
     this.extraConfig = config._config || {}; // raw cistack.config.js
     this.defaultBranch = config.defaultBranch || config.currentBranch || null;
+    this.workflowLayout = this.extraConfig.workflowLayout === 'split' ? 'split' : 'single';
 
     // Convenient accessors
     this.primaryLang = this.languages[0] || { name: 'JavaScript', packageManager: 'npm', nodeVersion: '20' };
@@ -31,9 +32,10 @@ class WorkflowGenerator {
     this.hasDocker = this.hosting.some((h) => h.name === 'Docker');
     this.primaryHosting = this.hosting.filter((h) => h.name !== 'Docker')[0] || null;
 
-    // Monorepo mode: per-package workflows if configured or if > 1 package
+    // Monorepo mode: always keep the root matrix workflow for monorepos.
+    // Split layout may additionally emit one workflow per workspace.
     this.isMonorepo = this.monorepoPackages.length > 0;
-    this.perPackageWorkflows = this.isMonorepo && (
+    this.perPackageWorkflows = this.workflowLayout === 'split' && this.isMonorepo && (
       (this.extraConfig.monorepo && this.extraConfig.monorepo.perPackage) ||
       this.monorepoPackages.length > 1
     );
@@ -77,15 +79,17 @@ class WorkflowGenerator {
   generate() {
     const workflows = [];
 
-    if (this.perPackageWorkflows) {
-      // ── Monorepo: one CI file per workspace ─────────────────────────────
-      for (const pkg of this.monorepoPackages) {
-        workflows.push({
-          filename: `ci-${this._slugify(pkg.name)}.yml`,
-          content: this._buildCIWorkflow(pkg),
-        });
+    if (this.isMonorepo) {
+      if (this.perPackageWorkflows) {
+        // ── Monorepo split mode: one CI file per workspace ───────────────
+        for (const pkg of this.monorepoPackages) {
+          workflows.push({
+            filename: `ci-${this._slugify(pkg.name)}.yml`,
+            content: this._buildCIWorkflow(pkg),
+          });
+        }
       }
-      // Root-level CI file (matrix over all packages)
+      // ── Monorepo root CI file (matrix over all packages) ──────────────
       workflows.push({
         filename: 'ci.yml',
         content: this._buildMonorepoRootCI(),

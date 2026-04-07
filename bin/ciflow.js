@@ -88,6 +88,7 @@ module.exports = {
   // packageManager: 'pnpm',    // 'npm' | 'yarn' | 'pnpm' | 'bun'
   // hosting: ['Firebase'],      // Force a specific hosting provider
   // branches: ['main', 'staging'], // CI branches (default: detected git default branch, then main/master/develop)
+  // workflowLayout: 'single',   // 'single' (default) or 'split'
   // outputDir: '.github/workflows', // Where to write workflow files
 
   // cache: {
@@ -101,7 +102,7 @@ module.exports = {
   // },
 
   // monorepo: {
-  //   perPackage: true, // Generate one ci-<name>.yml per workspace
+  //   perPackage: true, // Generate one ci-<name>.yml per workspace (split layout only)
   // },
 
   // release: {

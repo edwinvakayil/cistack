@@ -16,6 +16,7 @@ const chalk = require('chalk');
  *                      (default: detected git default branch, then main/master/develop)
  *   cache            – { npm: bool, cargo: bool, pip: bool, ... } enable/disable caches
  *   monorepo         – { perPackage: bool } generate one file per workspace
+ *   workflowLayout   – 'single' | 'split' (default: 'single')
  *   release          – { tool: 'semantic-release'|'changesets'|'standard-version'|'release-it' }
  *   secrets          – extra secret names to document in workflow comments
  *   outputDir        – override default '.github/workflows'

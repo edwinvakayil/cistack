@@ -63,6 +63,7 @@ export interface Config {
   frameworks?: string | string[];
   testing?: string | string[];
   branches?: string[];
+  workflowLayout?: 'single' | 'split';
   cache?: CacheConfig;
   monorepo?: MonorepoConfig;
   release?: ReleaseTool | ReleaseConfig;

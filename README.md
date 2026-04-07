@@ -76,45 +76,30 @@ This writes `cistack.config.js` with the supported override keys.
 
 ## What gets generated
 
-### `ci.yml`
+### `pipeline.yml`
 
-Continuous integration for linting, tests, builds, coverage upload, and optional E2E jobs.
+By default, `cistack` now generates a single GitHub Actions workflow that combines CI, deploy, Docker, security, and release jobs into one place so teams can track the whole pipeline from one file.
 
-- Runs on pushes and pull requests
+- Includes lint, test, build, E2E, deploy, Docker, security, and release jobs when those parts of the stack are detected
 - Uses the detected default branch or your configured `branches`
-- Uses runtime matrices where appropriate
-- Uses package-manager-aware install and script commands
+- Keeps preview deploys, release jobs, and scheduled security scans in the same workflow file
+- Documents required secrets in the file header
 
-### `deploy.yml`
+### `dependabot.yml`
 
-Continuous deployment for the primary hosting provider.
+Dependabot remains a separate file in `.github/dependabot.yml`, because it is not a GitHub Actions workflow.
 
-- Runs on production pushes plus manual dispatch
-- Uses preview deployments on pull requests for providers that support them cleanly
-- Documents the required secrets in the file header
-- Avoids empty push branch lists when a repo is `develop`-only
+### Split mode
 
-### `docker.yml`
+If you prefer the old multi-file layout, set:
 
-Builds and optionally pushes Docker images to GHCR.
+```js
+module.exports = {
+  workflowLayout: 'split',
+};
+```
 
-- Runs on configured branches, pull requests, and semantic version tags
-- Uses Buildx and GitHub Actions cache
-
-### `security.yml`
-
-Dependency audit plus CodeQL analysis.
-
-- Runs on push, pull request, and a weekly schedule
-- Uses the detected default branch or configured branch overrides
-
-### `release.yml`
-
-Generated when `semantic-release`, `changesets`, `release-it`, `standard-version`, or a custom release command is detected or configured.
-
-- Uses the detected package manager for release commands
-- Respects configured branches and detected default branch
-- Documents additional required secrets such as `NPM_TOKEN`
+In split mode, `cistack` writes separate `ci.yml`, `deploy.yml`, `docker.yml`, `security.yml`, and `release.yml` files again.
 
 ## Supported detection
 
@@ -184,6 +169,7 @@ module.exports = {
   nodeVersion: '20',
   packageManager: 'pnpm',
   branches: ['main', 'staging'],
+  workflowLayout: 'single',
   hosting: ['Vercel'],
   outputDir: '.github/workflows',
 
@@ -211,6 +197,7 @@ Supported top-level config keys:
 - `frameworks`
 - `testing`
 - `branches`
+- `workflowLayout`
 - `cache`
 - `monorepo`
 - `release`

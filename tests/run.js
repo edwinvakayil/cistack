@@ -17,6 +17,7 @@ const ReleaseDetector = require('../src/detectors/release');
 const TestingDetector = require('../src/detectors/testing');
 const WorkflowGenerator = require('../src/generators/workflow');
 const ReleaseGenerator = require('../src/generators/release');
+const combineWorkflows = require('../src/utils/workflow-combiner');
 const { smartMergeWorkflow } = require('../src/utils/helpers');
 
 const repoRoot = path.resolve(__dirname, '..');
@@ -324,6 +325,106 @@ test('WorkflowGenerator uses the detected default branch across CI, deploy, and 
   assert.deepEqual(byName['security.yml'].on.push.branches, ['release']);
 });
 
+test('combineWorkflows collapses generated workflows into a single pipeline file', () => {
+  const projectDir = makeTempDir();
+  writeFiles(projectDir, {
+    'package.json': json({
+      name: 'combined-pipeline-app',
+      version: '1.0.0',
+      scripts: {
+        test: 'echo ok',
+      },
+    }),
+  });
+
+  const config = makeJsProject({
+    hosting: [{ name: 'Vercel', secrets: ['VERCEL_TOKEN', 'VERCEL_ORG_ID', 'VERCEL_PROJECT_ID'] }],
+    testing: [{ name: 'Vitest', type: 'unit', confidence: 1, command: 'npm run test' }],
+  });
+  config.releaseInfo = { tool: 'custom', command: 'npm run release', publishToNpm: false, requiresNpmToken: false };
+  const workflows = new WorkflowGenerator(config, projectDir).generate();
+  workflows.push(new ReleaseGenerator(config.releaseInfo, config, projectDir).generate());
+
+  const combined = combineWorkflows(workflows, { config, releaseInfo: config.releaseInfo });
+  const parsed = parseWorkflow(combined.content);
+
+  assert.equal(combined.filename, 'pipeline.yml');
+  assert(parsed.jobs.ci_lint);
+  assert(parsed.jobs.deploy_deploy);
+  assert(parsed.jobs.security_security);
+  assert(parsed.jobs.release_release);
+});
+
+test('combineWorkflows preserves workflow-specific trigger scoping in the unified pipeline', () => {
+  const projectDir = makeTempDir();
+  writeFiles(projectDir, {
+    'package.json': json({
+      name: 'combined-trigger-app',
+      version: '1.0.0',
+      scripts: {
+        test: 'echo ok',
+        build: 'echo build',
+        release: 'echo release',
+      },
+    }),
+  });
+
+  const config = makeJsProject({
+    hosting: [{ name: 'Vercel', secrets: ['VERCEL_TOKEN', 'VERCEL_ORG_ID', 'VERCEL_PROJECT_ID'] }],
+    frameworks: [{ name: 'Next.js', confidence: 1, buildDir: '.next' }],
+    testing: [{ name: 'Vitest', type: 'unit', confidence: 1, command: 'npm run test' }],
+  });
+  config.releaseInfo = { tool: 'custom', command: 'npm run release', publishToNpm: false, requiresNpmToken: false };
+
+  const workflows = new WorkflowGenerator(config, projectDir).generate();
+  workflows.push(new ReleaseGenerator(config.releaseInfo, config, projectDir).generate());
+
+  const combined = parseWorkflow(combineWorkflows(workflows, { config, releaseInfo: config.releaseInfo }).content);
+
+  assert.deepEqual(combined.on.push.branches, ['main', 'master', 'develop']);
+  assert(combined.jobs.ci_lint.if.includes("github.event_name == 'push'"));
+  assert(combined.jobs.ci_lint.if.includes("github.event_name == 'pull_request'"));
+  assert(!combined.jobs.ci_lint.if.includes("github.event_name == 'schedule'"));
+  assert(combined.jobs.security_security.if.includes("github.event_name == 'schedule'"));
+  assert(combined.jobs.deploy_deploy.if.includes("github.ref_name == 'main'"));
+  assert(combined.jobs.deploy_deploy.if.includes("github.ref_name == 'master'"));
+  assert(!combined.jobs.deploy_deploy.if.includes("github.ref_name == 'develop'"));
+});
+
+test('Single-layout monorepos still generate the root workspace matrix CI', () => {
+  const projectDir = makeTempDir();
+  const packages = [
+    {
+      name: 'app',
+      relativePath: 'packages/app',
+      packageJson: {
+        name: 'app',
+        scripts: {
+          lint: 'echo lint',
+          test: 'echo test',
+          build: 'echo build',
+        },
+      },
+    },
+  ];
+
+  const generator = new WorkflowGenerator(
+    makeJsProject({
+      frameworks: [{ name: 'React', confidence: 1, buildDir: 'dist' }],
+      testing: [{ name: 'Vitest', type: 'unit', confidence: 1, command: 'npm run test' }],
+      monorepoPackages: packages,
+      _config: { monorepo: { perPackage: true } },
+    }),
+    projectDir
+  );
+
+  const ciWorkflow = parseWorkflow(generator.generate().find((workflow) => workflow.filename === 'ci.yml').content);
+
+  assert(ciWorkflow.jobs.ci);
+  assert(ciWorkflow.jobs.ci.strategy);
+  assert.equal(ciWorkflow.jobs.ci.steps.find((step) => step.name === 'Lint').if, '${{ matrix.lintScript != \'\' }}');
+});
+
 test('Frontend Lighthouse is omitted when no build job exists', () => {
   const projectDir = makeTempDir();
   const generator = new WorkflowGenerator(
@@ -576,7 +677,7 @@ test('Per-package CI picks workspace build scripts instead of only reading the r
     makeJsProject({
       testing: [{ name: 'Vitest', type: 'unit', confidence: 1, command: 'npm run test' }],
       monorepoPackages: [pkg],
-      _config: { monorepo: { perPackage: true } },
+      _config: { workflowLayout: 'split', monorepo: { perPackage: true } },
     }),
     projectDir
   );
@@ -635,7 +736,7 @@ test('Monorepo root CI installs dependencies at the repo root and does not hide 
       languages: [{ name: 'JavaScript', packageManager: 'yarn', nodeVersion: '20' }],
       monorepoPackages: packages,
       lockFiles: ['yarn.lock'],
-      _config: { monorepo: { perPackage: true } },
+      _config: { workflowLayout: 'split', monorepo: { perPackage: true } },
     }),
     projectDir
   );
@@ -680,7 +781,7 @@ test('Bun monorepo matrix commands are scoped to the workspace path', () => {
       frameworks: [{ name: 'React', confidence: 1, buildDir: 'dist' }],
       languages: [{ name: 'JavaScript', packageManager: 'bun', nodeVersion: '20' }],
       monorepoPackages: packages,
-      _config: { monorepo: { perPackage: true } },
+      _config: { workflowLayout: 'split', monorepo: { perPackage: true } },
     }),
     projectDir
   );
@@ -768,6 +869,31 @@ test('CLI smoke test still generates workflows in dry-run mode', () => {
         test: 'echo ok',
       },
     }),
+  });
+
+  const output = execFileSync(process.execPath, ['bin/ciflow.js', 'generate', '--path', projectDir, '--dry-run', '--no-prompt'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  assert(output.includes('.github/workflows/pipeline.yml'));
+  assert(output.includes('.github/dependabot.yml'));
+  assert(output.includes('Unified Pipeline'));
+  assert(output.includes('Done! Your GitHub Actions pipeline is ready.'));
+});
+
+test('CLI supports opting back into split workflow files', () => {
+  const projectDir = makeTempDir();
+  writeFiles(projectDir, {
+    'package.json': json({
+      name: 'cli-split-app',
+      version: '1.0.0',
+      scripts: {
+        test: 'echo ok',
+      },
+    }),
+    'cistack.config.js': `module.exports = { workflowLayout: 'split' };\n`,
   });
 
   const output = execFileSync(process.execPath, ['bin/ciflow.js', 'generate', '--path', projectDir, '--dry-run', '--no-prompt'], {

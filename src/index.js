@@ -18,6 +18,7 @@ const WorkflowGenerator = require('./generators/workflow');
 const DependabotGenerator = require('./generators/dependabot');
 const ReleaseGenerator  = require('./generators/release');
 const ConfigLoader      = require('./config/loader');
+const combineWorkflows  = require('./utils/workflow-combiner');
 const { ensureDir, writeFile, banner, smartMergeWorkflow } = require('./utils/helpers');
 
 const WorkflowAnalyzer = require('./analyzers/workflow');
@@ -105,8 +106,7 @@ class CIFlow {
       // ── 7. Generate CI/CD workflow(s) ─────────────────────────────────
       spinner.start('Generating workflow(s)...');
       const generator = new WorkflowGenerator(finalConfig, this.projectPath);
-      const workflows = generator.generate();
-      spinner.succeed(chalk.green(`Generated ${workflows.length} CI workflow(s)`));
+      let workflows = generator.generate();
 
       // ── 8. Generate dependabot.yml ────────────────────────────────────
       const dependabotGen = new DependabotGenerator(codebaseInfo);
@@ -120,6 +120,11 @@ class CIFlow {
         releaseWorkflow = releaseGen.generate();
         if (releaseWorkflow) workflows.push(releaseWorkflow);
       }
+
+      if (this._workflowLayout(finalConfig) !== 'split') {
+        workflows = [combineWorkflows(workflows, { config: finalConfig, releaseInfo: combinedReleaseInfo })];
+      }
+      spinner.succeed(chalk.green(`Generated ${workflows.length} workflow file(s)`));
 
       // ── 10. Write files ────────────────────────────────────────────────
       if (this.dryRun) {
@@ -251,6 +256,11 @@ class CIFlow {
     }
 
     console.log('');
+  }
+
+  _workflowLayout(config) {
+    const layout = config && config._config && config._config.workflowLayout;
+    return layout === 'split' ? 'split' : 'single';
   }
 
   async _interactiveConfirm(config) {
