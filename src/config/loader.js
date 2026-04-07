@@ -105,11 +105,11 @@ class ConfigLoader {
     if (!cfg || Object.keys(cfg).length === 0) return detected;
 
     const result = { ...detected };
-    const packageManager =
-      (result.languages && result.languages[0] && result.languages[0].packageManager) ||
-      cfg.packageManager ||
-      'npm';
     const runScript = (scriptName) => {
+      const packageManager =
+        (result.languages && result.languages[0] && result.languages[0].packageManager) ||
+        cfg.packageManager ||
+        'npm';
       if (packageManager === 'yarn') return `yarn run ${scriptName}`;
       if (packageManager === 'pnpm') return `pnpm run ${scriptName}`;
       if (packageManager === 'bun') return `bun run ${scriptName}`;

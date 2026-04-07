@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version:
+          - 18.x
+          - 20.x
+          - 22.x
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run package smoke test
+        run: npm test
+
+      - name: Verify audit command
+        run: node bin/ciflow.js audit --path .
+
+      - name: Verify upgrade command
+        run: node bin/ciflow.js upgrade --path . --dry-run
+
+      - name: Smoke test init command in temp workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp_dir="$(mktemp -d)"
+          node bin/ciflow.js init --path "$tmp_dir"
+          test -f "$tmp_dir/cistack.config.js"
+
+      - name: Smoke test generate command in temp workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp_dir="$(mktemp -d)"
+          cat > "$tmp_dir/package.json" <<'JSON'
+          {
+            "name": "fixture-app",
+            "version": "1.0.0",
+            "scripts": {
+              "test": "echo ok"
+            }
+          }
+          JSON
+          node bin/ciflow.js generate --path "$tmp_dir" --dry-run --no-prompt

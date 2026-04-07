@@ -56,12 +56,13 @@ class ReleaseDetector {
     // --- release-it ---
     if (this.deps['release-it']) {
       const config = this._loadReleaseItConfig();
+      const publishToNpm = !!(config && config.npm && config.npm.publish !== false);
       return {
         tool: 'release-it',
         command: 'npx release-it --ci',
         config,
-        publishToNpm: !!(config && config.npm && config.npm.publish !== false),
-        requiresNpmToken: true,
+        publishToNpm,
+        requiresNpmToken: publishToNpm,
       };
     }
 

@@ -179,8 +179,8 @@ class WorkflowGenerator {
           this._stepCheckout(),
           ...this._setupSteps(lang),
           this._stepInstallDeps(lang),
-          ...this._buildSteps(lang, pkg),
-          this._stepUploadArtifact(),
+          ...buildSteps,
+          this._stepUploadArtifact(lang),
         ].filter(Boolean),
         env: {
           NODE_ENV: 'production',
@@ -829,8 +829,21 @@ class WorkflowGenerator {
     return steps;
   }
 
-  _stepUploadArtifact() {
-    const buildDir = (this.frameworks[0] && this.frameworks[0].buildDir) || 'dist';
+  _stepUploadArtifact(lang) {
+    let buildDir = null;
+
+    if (['JavaScript', 'TypeScript'].includes(lang.name)) {
+      buildDir = (this.frameworks[0] && this.frameworks[0].buildDir) || 'dist';
+    } else if (lang.name === 'Rust') {
+      buildDir = 'target/release';
+    } else if (lang.name === 'Java') {
+      buildDir = 'target';
+    } else if (lang.name === 'Kotlin') {
+      buildDir = 'build/libs';
+    }
+
+    if (!buildDir) return null;
+
     return {
       name: 'Upload build artifact',
       uses: 'actions/upload-artifact@v4',
