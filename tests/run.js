@@ -560,7 +560,7 @@ test('Netlify preview configuration uses the detected production branch instead 
   assert.equal(previewStep.with['production-branch'], 'release');
 });
 
-test('Preview deploy jobs only run for same-repo pull requests with secrets access', () => {
+test('Preview deploy jobs run for same-repo pull requests, including Dependabot PRs', () => {
   const projectDir = makeTempDir();
   writeFiles(projectDir, {
     'package.json': json({
@@ -582,11 +582,13 @@ test('Preview deploy jobs only run for same-repo pull requests with secrets acce
 
   const deploy = generator.generate().find((workflow) => workflow.filename === 'deploy.yml');
   const parsed = parseWorkflow(deploy.content);
+  const commentStep = parsed.jobs.preview.steps.find((step) => step.name === 'Comment PR');
 
   assert.equal(
     parsed.jobs.preview.if,
-    "github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository"
+    "github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository"
   );
+  assert.equal(commentStep.if, "always() && github.actor != 'dependabot[bot]'");
 });
 
 test('Generic JavaScript builds no longer upload a fake dist artifact when no build directory is known', () => {

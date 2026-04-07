@@ -422,7 +422,7 @@ class WorkflowGenerator {
     if (previewSteps.length > 0) {
       jobs.preview = {
         name: `✨ Deploy → ${h.name} (Preview)`,
-        if: "github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository",
+        if: "github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository",
         'runs-on': 'ubuntu-latest',
         environment: 'preview',
         steps: [
@@ -430,7 +430,7 @@ class WorkflowGenerator {
           ...previewSteps,
           {
             name: 'Comment PR',
-            if: 'always()',
+            if: "always() && github.actor != 'dependabot[bot]'",
             uses: 'actions/github-script@v7',
             with: {
               script: `

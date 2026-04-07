@@ -89,6 +89,8 @@ By default, `cistack` now generates a single GitHub Actions workflow that combin
 
 Dependabot remains a separate file in `.github/dependabot.yml`, because it is not a GitHub Actions workflow.
 
+If you want preview deployments on Dependabot pull requests, add deployment credentials as Dependabot secrets too, not only Actions secrets. For Vercel, that means `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`.
+
 ### Split mode
 
 If you prefer the old multi-file layout, set:
