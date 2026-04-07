@@ -27,7 +27,7 @@ class CodebaseAnalyzer {
       workspaces: [],
     };
 
-    // ── gather all file paths (ignore node_modules, .git, dist, build) ────
+    // ── gather notable file paths (avoid giant deep scans) ──────────────
     const allFiles = globSync('**/*', {
       cwd: this.root,
       ignore: [
@@ -38,11 +38,16 @@ class CodebaseAnalyzer {
         '.next/**',
         '.nuxt/**',
         'coverage/**',
+        'public/**',
+        'assets/**',
+        'static/**',
+        'vendor/**',
         '*.min.js',
         '*.min.css',
       ],
-      nodir: true,
+      nodir: false,
       dot: true,
+      maxDepth: 5, // Avoid extreme depth for general discovery
     });
 
     info.files = allFiles;
@@ -149,7 +154,7 @@ class CodebaseAnalyzer {
       'biome.json',
       // CI already present
       '.travis.yml',
-      'circle.ci/config.yml',
+      '.circleci/config.yml',
       'Jenkinsfile',
     ];
 
@@ -188,9 +193,7 @@ class CodebaseAnalyzer {
       fs.existsSync(path.join(this.root, 'turbo.json')) ||
       fs.existsSync(path.join(this.root, 'nx.json')) ||
       fs.existsSync(path.join(this.root, 'lerna.json')) ||
-      (info.packageJson &&
-        (info.packageJson.workspaces ||
-          info.packageJson.private === true));
+      (info.packageJson && info.packageJson.workspaces);
 
     info.hasMonorepo = !!hasMonorepoMarker;
     if (info.packageJson && info.packageJson.workspaces) {

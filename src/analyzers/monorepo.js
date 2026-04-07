@@ -43,17 +43,17 @@ class MonorepoAnalyzer {
 
       for (const relDir of matches) {
         if (seen.has(relDir)) continue;
-        seen.add(relDir);
 
         const absPath = path.join(this.root, relDir);
         const pkgJsonPath = path.join(absPath, 'package.json');
-        let pkgJson = null;
+        if (!fs.existsSync(pkgJsonPath)) continue;
 
-        if (fs.existsSync(pkgJsonPath)) {
-          try {
-            pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
-          } catch (_) {}
-        }
+        seen.add(relDir);
+
+        let pkgJson = null;
+        try {
+          pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
+        } catch (_) {}
 
         const name = (pkgJson && pkgJson.name) || path.basename(relDir);
 

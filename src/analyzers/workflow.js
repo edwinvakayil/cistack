@@ -70,6 +70,15 @@ class WorkflowAnalyzer {
 
   _auditFile(filename, parsed, rawContent) {
     const issues = [];
+    if (!parsed || typeof parsed !== 'object') {
+      issues.push({
+        type: 'invalid_workflow',
+        severity: 'high',
+        message: 'Workflow file does not parse to a valid YAML object',
+        fix: 'Ensure the workflow root is a YAML mapping with top-level workflow keys',
+      });
+      return issues;
+    }
 
     // 1. Check for concurrency
     if (!parsed.concurrency) {
@@ -85,7 +94,6 @@ class WorkflowAnalyzer {
     const actionRegex = /uses:\s*([\w\-\/]+)@([\w\.]+)/g;
     let match;
     while ((match = actionRegex.exec(rawContent)) !== null) {
-      const fullAction = match[0];
       const actionName = match[1];
       const currentVersion = match[2];
 
@@ -148,7 +156,6 @@ class WorkflowAnalyzer {
     for (const filename of files) {
       const filePath = path.join(this.workflowsDir, filename);
       let content = fs.readFileSync(filePath, 'utf8');
-      let originalContent = content;
       let fileChanges = 0;
 
       for (const [action, latest] of Object.entries(this.latestVersions)) {

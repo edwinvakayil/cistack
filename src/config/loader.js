@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const chalk = require('chalk');
 
 /**
  * Loads cistack.config.js (or .cjs / .mjs) from the project root.
@@ -23,7 +24,7 @@ class ConfigLoader {
     this.projectPath = projectPath;
   }
 
-  load() {
+  async load() {
     const candidates = [
       'cistack.config.js',
       'cistack.config.cjs',
@@ -40,10 +41,11 @@ class ConfigLoader {
           // Since this is a CLI, we can afford a bit of hackiness or just support CommonJS primarily.
           
           let cfg;
-          if (candidate.endsWith('.mjs')) {
-            // Very basic support for .mjs if the environment supports it, but require usually fails.
-            // We'll try to use the fact that many environments now support require('.mjs') or just warn.
-            cfg = require(fullPath);
+          if (candidate.endsWith('.mjs') || (candidate.endsWith('.js') && !candidate.endsWith('.cjs'))) {
+            // Dynamic import() for ESM support
+            const modulePath = path.resolve(this.projectPath, candidate);
+            const imported = await import(`file://${modulePath}`);
+            cfg = imported.default || imported;
           } else {
             delete require.cache[require.resolve(fullPath)];
             cfg = require(fullPath);
@@ -103,6 +105,30 @@ class ConfigLoader {
     if (!cfg || Object.keys(cfg).length === 0) return detected;
 
     const result = { ...detected };
+    const packageManager =
+      (result.languages && result.languages[0] && result.languages[0].packageManager) ||
+      cfg.packageManager ||
+      'npm';
+    const runScript = (scriptName) => {
+      if (packageManager === 'yarn') return `yarn run ${scriptName}`;
+      if (packageManager === 'pnpm') return `pnpm run ${scriptName}`;
+      if (packageManager === 'bun') return `bun run ${scriptName}`;
+      return `npm run ${scriptName}`;
+    };
+    const canonicalHostingNames = {
+      firebase: 'Firebase',
+      vercel: 'Vercel',
+      netlify: 'Netlify',
+      aws: 'AWS',
+      'gcp app engine': 'GCP App Engine',
+      gcp: 'GCP App Engine',
+      azure: 'Azure',
+      heroku: 'Heroku',
+      render: 'Render',
+      railway: 'Railway',
+      'github pages': 'GitHub Pages',
+      'github-pages': 'GitHub Pages',
+    };
 
     // 1. Language overrides (Node version, package manager)
     if (cfg.nodeVersion && result.languages && result.languages.length > 0) {
@@ -114,21 +140,39 @@ class ConfigLoader {
     }
 
     if (cfg.packageManager && result.languages && result.languages.length > 0) {
-      result.languages = result.languages.map((l, i) =>
-        i === 0 ? { ...l, packageManager: cfg.packageManager, manual: true } : l
+      result.languages = result.languages.map((l) =>
+        ({ ...l, packageManager: cfg.packageManager, manual: true })
       );
     }
 
     // 2. Hosting overrides
     if (cfg.hosting) {
       const hostingNames = Array.isArray(cfg.hosting) ? cfg.hosting : [cfg.hosting];
+      const hostingSecrets = {
+        Firebase: ['FIREBASE_SERVICE_ACCOUNT'],
+        Vercel: ['VERCEL_TOKEN', 'VERCEL_ORG_ID', 'VERCEL_PROJECT_ID'],
+        Netlify: ['NETLIFY_AUTH_TOKEN', 'NETLIFY_SITE_ID'],
+        AWS: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION', 'AWS_S3_BUCKET', 'CLOUDFRONT_DISTRIBUTION_ID'],
+        'GCP App Engine': ['GCP_SA_KEY'],
+        Azure: ['AZURE_APP_NAME', 'AZURE_WEBAPP_PUBLISH_PROFILE'],
+        Heroku: ['HEROKU_API_KEY', 'HEROKU_APP_NAME', 'HEROKU_EMAIL'],
+        Render: ['RENDER_DEPLOY_HOOK_URL'],
+        Railway: ['RAILWAY_TOKEN'],
+        'GitHub Pages': [],
+      };
       result.hosting = hostingNames.map((name) => ({
-        name,
+        name: canonicalHostingNames[String(name).toLowerCase()] || name,
         confidence: 1.0,
         manual: true,
-        secrets: [],
+        secrets: hostingSecrets[canonicalHostingNames[String(name).toLowerCase()] || name] || [],
         notes: ['set via cistack.config.js'],
       }));
+    }
+
+    // 2b. Release override
+    if (cfg.release) {
+       // If release is provided as a string, wrap it
+       result.releaseInfo = typeof cfg.release === 'string' ? { tool: cfg.release } : cfg.release;
     }
 
     // 3. Framework overrides
@@ -149,7 +193,7 @@ class ConfigLoader {
         confidence: 1.0,
         manual: true,
         type: 'unit', // default
-        command: `npm run test` // fallback
+        command: runScript('test') // fallback
       }));
     }
 

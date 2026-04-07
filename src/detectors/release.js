@@ -24,6 +24,7 @@ class ReleaseDetector {
       ...(this.pkg.devDependencies || {}),
     };
     this.scripts = this.pkg.scripts || {};
+    this.packageManager = this._detectPackageManager();
   }
 
   async detect() {
@@ -77,9 +78,10 @@ class ReleaseDetector {
     // --- fallback: check scripts ---
     const releaseScript = this.scripts['release'] || this.scripts['version'];
     if (releaseScript) {
+      const scriptName = this.scripts['release'] ? 'release' : 'version';
       return {
         tool: 'custom',
-        command: 'npm run release',
+        command: this._runScript(scriptName),
         publishToNpm: releaseScript.includes('publish'),
         requiresNpmToken: releaseScript.includes('publish'),
       };
@@ -90,14 +92,15 @@ class ReleaseDetector {
 
   _loadSemanticReleaseConfig() {
     // Try .releaserc, .releaserc.json, .releaserc.js, package.json#release
-    const candidates = ['.releaserc', '.releaserc.json', '.releaserc.js', '.releaserc.yaml'];
+    const candidates = ['.releaserc', '.releaserc.json', '.releaserc.js', '.releaserc.cjs', '.releaserc.yaml', '.releaserc.yml'];
     for (const c of candidates) {
       const p = path.join(this.root, c);
       if (fs.existsSync(p)) {
         try {
+          if (c.endsWith('.js') || c.endsWith('.cjs')) return require(p);
           const raw = fs.readFileSync(p, 'utf8');
-          if (c.endsWith('.js')) return require(p);
-          return JSON.parse(raw);
+          const yaml = require('js-yaml');
+          return yaml.load(raw);
         } catch (_) {}
       }
     }
@@ -106,18 +109,35 @@ class ReleaseDetector {
   }
 
   _loadReleaseItConfig() {
-    const candidates = ['.release-it.json', '.release-it.js', '.release-it.yaml'];
+    const candidates = ['.release-it.json', '.release-it.js', '.release-it.cjs', '.release-it.yaml', '.release-it.yml'];
     for (const c of candidates) {
       const p = path.join(this.root, c);
       if (fs.existsSync(p)) {
         try {
+          if (c.endsWith('.js') || c.endsWith('.cjs')) return require(p);
           const raw = fs.readFileSync(p, 'utf8');
-          return JSON.parse(raw);
+          const yaml = require('js-yaml');
+          return yaml.load(raw);
         } catch (_) {}
       }
     }
     if (this.pkg['release-it']) return this.pkg['release-it'];
     return {};
+  }
+
+  _detectPackageManager() {
+    const lockFiles = this.info.lockFiles || [];
+    if (lockFiles.includes('pnpm-lock.yaml')) return 'pnpm';
+    if (lockFiles.includes('yarn.lock')) return 'yarn';
+    if (lockFiles.includes('bun.lockb')) return 'bun';
+    return 'npm';
+  }
+
+  _runScript(name) {
+    if (this.packageManager === 'yarn') return `yarn run ${name}`;
+    if (this.packageManager === 'pnpm') return `pnpm run ${name}`;
+    if (this.packageManager === 'bun') return `bun run ${name}`;
+    return `npm run ${name}`;
   }
 }
 

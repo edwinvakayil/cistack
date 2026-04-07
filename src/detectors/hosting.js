@@ -84,7 +84,7 @@ class HostingDetector {
       name: 'Firebase',
       confidence: Math.min(confidence, 1),
       deployCommand: `firebase deploy --only ${deployTarget}`,
-      secrets: ['FIREBASE_TOKEN'],
+      secrets: ['FIREBASE_SERVICE_ACCOUNT'],
       reasons,
       buildStep: this._detectBuildScript(),
     };
@@ -102,7 +102,7 @@ class HostingDetector {
     return {
       name: 'Vercel',
       confidence: Math.min(confidence, 1),
-      deployCommand: 'vercel --prod --token $VERCEL_TOKEN',
+      deployCommand: 'vercel deploy --prod',
       secrets: ['VERCEL_TOKEN', 'VERCEL_ORG_ID', 'VERCEL_PROJECT_ID'],
       reasons,
       buildStep: this._detectBuildScript(),
@@ -118,7 +118,7 @@ class HostingDetector {
     if (this.deps['netlify-cli'] || this.deps['netlify']) { confidence += 0.3; reasons.push('netlify dependency found'); }
     if (Object.values(this.scripts).some((s) => s.includes('netlify'))) { confidence += 0.3; reasons.push('netlify script found'); }
 
-    let publishDir = 'dist';
+    let publishDir = null;
     try {
       const toml = fs.readFileSync(path.join(this.root, 'netlify.toml'), 'utf8');
       const match = toml.match(/publish\s*=\s*["']?([^"'\n]+)/);
@@ -173,7 +173,7 @@ class HostingDetector {
       name: 'Heroku',
       confidence,
       deployCommand: 'git push heroku main',
-      secrets: ['HEROKU_API_KEY', 'HEROKU_APP_NAME'],
+      secrets: ['HEROKU_API_KEY', 'HEROKU_APP_NAME', 'HEROKU_EMAIL'],
       reasons,
     };
   }
@@ -199,11 +199,12 @@ class HostingDetector {
     if (this.configs.has('serverless.yml') || this.configs.has('serverless.yaml')) { confidence += 0.6; reasons.push('serverless.yml found'); }
     if (this.configs.has('cdk.json')) { confidence += 0.4; reasons.push('cdk.json found'); }
     if (this.deps['aws-sdk'] || this.deps['@aws-sdk/client-s3']) { confidence += 0.15; reasons.push('aws-sdk found'); }
+    const buildDir = this._detectBuildDir();
     return {
       name: 'AWS',
       confidence: Math.min(confidence, 1),
-      deployCommand: 'aws s3 sync ./dist s3://$AWS_S3_BUCKET --delete',
-      secrets: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION'],
+      deployCommand: `aws s3 sync ./${buildDir} s3://$AWS_S3_BUCKET --delete`,
+      secrets: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION', 'AWS_S3_BUCKET', 'CLOUDFRONT_DISTRIBUTION_ID'],
       reasons,
     };
   }
@@ -217,7 +218,7 @@ class HostingDetector {
       name: 'Azure',
       confidence,
       deployCommand: 'az webapp up',
-      secrets: ['AZURE_CREDENTIALS'],
+      secrets: ['AZURE_APP_NAME', 'AZURE_WEBAPP_PUBLISH_PROFILE'],
       reasons,
     };
   }
@@ -258,6 +259,14 @@ class HostingDetector {
     if (scripts.build) return `npm run build`;
     if (scripts['build:prod']) return `npm run build:prod`;
     return null;
+  }
+
+  _detectBuildDir() {
+    // If codebase has common build dirs
+    const dirs = this.info.srcStructure.topDirs || [];
+    if (dirs.includes('dist')) return 'dist';
+    if (dirs.includes('build')) return 'build';
+    return 'dist'; // fallback
   }
 }
 

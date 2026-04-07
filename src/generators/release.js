@@ -83,7 +83,7 @@ class ReleaseGenerator {
             name: 'Create Release PR or Publish',
             uses: 'changesets/action@v1',
             with: {
-              publish: runCmd('release'),
+              publish: this.release.command || runCmd('release'),
               title: 'chore: version packages',
               commit: 'chore: version packages',
             },
@@ -166,8 +166,8 @@ class ReleaseGenerator {
         release: {
           name: `🏷️ Release (${tool})`,
           'runs-on': 'ubuntu-latest',
-          // Only run on the default branch, not every push in a monorepo etc.
-          if: "github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'",
+          // Only run on the configured branches, not every push in a monorepo etc.
+          if: branches.map(b => `github.ref == 'refs/heads/${b}'`).join(' || '),
           steps: [...setupSteps, ...releaseSteps],
         },
       },

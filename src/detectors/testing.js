@@ -15,6 +15,7 @@ class TestingDetector {
     this.scripts = this.pkg.scripts || {};
     this.configs = new Set(codebaseInfo.configFiles);
     this.files = new Set(codebaseInfo.files);
+    this.packageManager = this._detectPackageManager();
   }
 
   async detect() {
@@ -128,9 +129,24 @@ class TestingDetector {
 
   _testScript(tool) {
     const scripts = this.pkg.scripts || {};
-    if (scripts.test && scripts.test.includes(tool)) return 'npm test';
-    if (scripts['test:ci']) return 'npm run test:ci';
+    if (scripts.test && scripts.test.includes(tool)) return this._runScript('test');
+    if (scripts['test:ci']) return this._runScript('test:ci');
     return null;
+  }
+
+  _detectPackageManager() {
+    const lockFiles = this.info.lockFiles || [];
+    if (lockFiles.includes('pnpm-lock.yaml')) return 'pnpm';
+    if (lockFiles.includes('yarn.lock')) return 'yarn';
+    if (lockFiles.includes('bun.lockb')) return 'bun';
+    return 'npm';
+  }
+
+  _runScript(name) {
+    if (this.packageManager === 'yarn') return `yarn run ${name}`;
+    if (this.packageManager === 'pnpm') return `pnpm run ${name}`;
+    if (this.packageManager === 'bun') return `bun run ${name}`;
+    return `npm run ${name}`;
   }
 }
 

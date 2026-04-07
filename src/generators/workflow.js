@@ -35,6 +35,41 @@ class WorkflowGenerator {
       (this.extraConfig.monorepo && this.extraConfig.monorepo.perPackage) ||
       this.monorepoPackages.length > 1
     );
+
+    // Initial runtime detection
+    this._detectRuntimeVersions();
+  }
+
+  _detectRuntimeVersions() {
+    const fs = require('fs');
+    const path = require('path');
+
+    // 1. Node.js
+    if (!this.primaryLang.nodeVersion) {
+      const nvmrcPath = path.join(this.projectPath, '.nvmrc');
+      if (fs.existsSync(nvmrcPath)) {
+        this.primaryLang.nodeVersion = fs.readFileSync(nvmrcPath, 'utf8').trim().replace('v', '');
+      } else {
+        try {
+          const pkg = JSON.parse(fs.readFileSync(path.join(this.projectPath, 'package.json'), 'utf8'));
+          if (pkg.engines && pkg.engines.node) {
+            const match = pkg.engines.node.match(/(\d+)/);
+            if (match) this.primaryLang.nodeVersion = match[1];
+          }
+        } catch (_) {}
+      }
+      this.primaryLang.nodeVersion = this.primaryLang.nodeVersion || '20';
+    }
+
+    // 2. Python
+    if (this.primaryLang.name === 'Python' && !this.primaryLang.pythonVersion) {
+      const pythonVersionPath = path.join(this.projectPath, '.python-version');
+      if (fs.existsSync(pythonVersionPath)) {
+        this.primaryLang.pythonVersion = fs.readFileSync(pythonVersionPath, 'utf8').trim();
+      } else {
+        this.primaryLang.pythonVersion = '3.11';
+      }
+    }
   }
 
   generate() {
@@ -104,8 +139,12 @@ class WorkflowGenerator {
         this._stepCheckout(),
         ...this._setupSteps(lang),
         this._stepInstallDeps(lang),
-        this._stepLint(lang),
+        this._stepLint(lang, pkg),
       ].filter(Boolean),
+      env: {
+        CI: 'true',
+        ...this._getPublicEnv(),
+      },
     };
 
     // ── test job ──────────────────────────────────────────────────────────
@@ -117,16 +156,20 @@ class WorkflowGenerator {
         ...(testMatrix ? { strategy: testMatrix } : {}),
         steps: [
           this._stepCheckout(),
-          ...this._setupSteps(lang),
+          ...this._setupSteps(lang, !!testMatrix),
           this._stepInstallDeps(lang),
           ...this._unitTestSteps(lang),
           this._stepUploadCoverage(),
         ].filter(Boolean),
+        env: {
+          CI: 'true',
+          ...this._getPublicEnv(),
+        },
       };
     }
 
     // ── build job ─────────────────────────────────────────────────────────
-    const buildSteps = this._buildSteps(lang);
+    const buildSteps = this._buildSteps(lang, pkg);
     if (buildSteps.length > 0) {
       jobs.build = {
         name: '🏗️ Build',
@@ -136,9 +179,36 @@ class WorkflowGenerator {
           this._stepCheckout(),
           ...this._setupSteps(lang),
           this._stepInstallDeps(lang),
-          ...buildSteps,
+          ...this._buildSteps(lang, pkg),
           this._stepUploadArtifact(),
         ].filter(Boolean),
+        env: {
+          NODE_ENV: 'production',
+          ...this._getPublicEnv(),
+        },
+      };
+    }
+
+    // ── lighthouse job ──────────────────────────────────────────────────
+    if (this.frameworks.some(f => ['Next.js', 'React', 'Vue', 'Svelte', 'Nuxt'].includes(f.name))) {
+      jobs.lighthouse = {
+        name: '⚡ Lighthouse Audit',
+        'runs-on': 'ubuntu-latest',
+        needs: ['build'],
+        if: "github.event_name == 'pull_request'",
+        steps: [
+          this._stepCheckout(),
+          {
+            name: 'Run Lighthouse on build output',
+            uses: 'treosh/lighthouse-ci-action@v11',
+            with: {
+              uploadArtifacts: true,
+              temporaryPublicStorage: true,
+              configPath: './.lighthouserc.json',
+            },
+          },
+        ],
+        'continue-on-error': true,
       };
     }
 
@@ -222,7 +292,10 @@ class WorkflowGenerator {
           'runs-on': 'ubuntu-latest',
           strategy: {
             matrix: {
-              package: pkgPaths,
+              include: this.monorepoPackages.map((p) => ({
+                name: p.name,
+                package: p.relativePath,
+              })),
             },
             'fail-fast': false,
           },
@@ -234,37 +307,78 @@ class WorkflowGenerator {
               run: lang.packageManager === 'pnpm'
                 ? 'pnpm --filter ${{ matrix.package }} install --frozen-lockfile'
                 : lang.packageManager === 'yarn'
-                ? 'yarn workspace ${{ matrix.package }} install'
-                : 'npm ci --workspace=${{ matrix.package }}',
+                ? 'yarn workspace ${{ matrix.name }} install'
+                : 'npm ci --workspace=${{ matrix.name }}',
             },
             {
               name: 'Lint',
               run: lang.packageManager === 'pnpm'
                 ? 'pnpm --filter ${{ matrix.package }} run lint --if-present'
                 : lang.packageManager === 'yarn'
-                ? 'yarn workspace ${{ matrix.package }} run lint || true'
-                : 'npm run --workspace=${{ matrix.package }} lint || true',
+                ? 'yarn workspace ${{ matrix.name }} run lint || true'
+                : 'npm run --workspace=${{ matrix.name }} lint || true',
             },
             {
               name: 'Test',
               run: lang.packageManager === 'pnpm'
                 ? 'pnpm --filter ${{ matrix.package }} run test --if-present'
                 : lang.packageManager === 'yarn'
-                ? 'yarn workspace ${{ matrix.package }} run test || true'
-                : 'npm run --workspace=${{ matrix.package }} test || true',
+                ? 'yarn workspace ${{ matrix.name }} run test || true'
+                : 'npm run --workspace=${{ matrix.name }} test || true',
             },
             {
               name: 'Build',
               run: lang.packageManager === 'pnpm'
                 ? 'pnpm --filter ${{ matrix.package }} run build --if-present'
                 : lang.packageManager === 'yarn'
-                ? 'yarn workspace ${{ matrix.package }} run build || true'
-                : 'npm run --workspace=${{ matrix.package }} build || true',
+                ? 'yarn workspace ${{ matrix.name }} run build || true'
+                : 'npm run --workspace=${{ matrix.name }} build || true',
             },
           ].filter(Boolean),
+          env: {
+            NODE_ENV: 'test',
+            CI: 'true',
+            ...this._getPublicEnv(),
+          },
         },
       },
     };
+
+    if (this.frameworks.some(f => ['Next.js', 'React', 'Vue', 'Svelte', 'Nuxt'].includes(f.name))) {
+      workflow.jobs.lighthouse = {
+        name: '⚡ Lighthouse (Root)',
+        'runs-on': 'ubuntu-latest',
+        strategy: {
+          matrix: {
+            include: this.monorepoPackages.map((p) => ({
+              name: p.name,
+              package: p.relativePath,
+            })),
+          },
+        },
+        steps: [
+          this._stepCheckout(),
+          ...this._setupSteps(lang),
+          {
+            name: 'Install & Build',
+            run: lang.packageManager === 'pnpm' 
+              ? 'pnpm --filter ${{ matrix.package }} install && pnpm --filter ${{ matrix.package }} run build'
+              : lang.packageManager === 'yarn'
+              ? 'yarn workspace ${{ matrix.name }} install && yarn workspace ${{ matrix.name }} run build'
+              : 'npm ci --workspace=${{ matrix.name }} && npm run --workspace=${{ matrix.name }} build',
+          },
+          {
+            name: 'Lighthouse',
+            uses: 'treosh/lighthouse-ci-action@v11',
+            with: {
+              uploadArtifacts: true,
+              temporaryPublicStorage: true,
+            },
+          },
+        ],
+        'continue-on-error': true,
+      };
+    }
 
     return this._toYaml(
       workflow,
@@ -281,6 +395,7 @@ class WorkflowGenerator {
     const lang = this.primaryLang;
     const branches = this.extraConfig.branches || ['main', 'master'];
     const isGHPages = h.name === 'GitHub Pages';
+    const supportsPreview = ['Firebase', 'Vercel', 'Netlify'].includes(h.name);
 
     const preDeploySteps = [
       this._stepCheckout(),
@@ -289,8 +404,8 @@ class WorkflowGenerator {
     ].filter(Boolean);
 
     const deploySteps = this._hostingDeploySteps(h, lang, false); // production
-    // GitHub Pages has no PR preview concept — skip preview job for it
-    const previewSteps = isGHPages ? [] : this._hostingDeploySteps(h, lang, true);
+    // Only generate PR preview steps for platforms that natively isolate them
+    const previewSteps = supportsPreview ? this._hostingDeploySteps(h, lang, true) : [];
 
     // GitHub Pages requires special permissions on the deploy job
     const ghPagesPermissions = isGHPages
@@ -315,7 +430,27 @@ class WorkflowGenerator {
         if: "github.event_name == 'pull_request'",
         'runs-on': 'ubuntu-latest',
         environment: 'preview',
-        steps: [...preDeploySteps, ...previewSteps].filter(Boolean),
+        steps: [
+          ...preDeploySteps,
+          ...previewSteps,
+          {
+            name: 'Comment PR',
+            if: 'always()',
+            uses: 'actions/github-script@v7',
+            with: {
+              script: `
+                const deploymentUrl = process.env.DEPLOYMENT_URL;
+                if (!deploymentUrl) return;
+                github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: '🚀 **Deployment Preview Ready!**\\n\\n[View Preview](' + deploymentUrl + ')'
+                });
+              `
+            }
+          }
+        ].filter(Boolean),
       };
     }
 
@@ -331,14 +466,18 @@ class WorkflowGenerator {
 
     const envComment = this._envComment();
 
-    // GitHub Pages doesn't need pull_request trigger (no preview)
-    const onTrigger = isGHPages
-      ? { push: { branches: branches.filter((b) => b !== 'develop') }, workflow_dispatch: {} }
-      : { push: { branches: branches.filter((b) => b !== 'develop') }, pull_request: { branches }, workflow_dispatch: {} };
+    // Only trigger on PR if the platform supports preview deployments
+    const onTrigger = supportsPreview
+      ? { push: { branches: branches.filter((b) => b !== 'develop') }, pull_request: { branches }, workflow_dispatch: {} }
+      : { push: { branches: branches.filter((b) => b !== 'develop') }, workflow_dispatch: {} };
 
     const workflow = {
       name: `Deploy to ${h.name}`,
       on: onTrigger,
+      concurrency: {
+        group: '${{ github.workflow }}-${{ github.ref }}',
+        'cancel-in-progress': true,
+      },
       jobs,
     };
 
@@ -353,14 +492,15 @@ class WorkflowGenerator {
   // ══════════════════════════════════════════════════════════════════════════
 
   _buildDockerWorkflow() {
+    const branches = this.extraConfig.branches || ['main', 'master'];
     const workflow = {
       name: 'Docker Build & Push',
       on: {
         push: {
-          branches: ['main', 'master'],
+          branches,
           tags: ['v*.*.*'],
         },
-        pull_request: { branches: ['main', 'master'] },
+        pull_request: { branches },
       },
       env: {
         REGISTRY: 'ghcr.io',
@@ -431,6 +571,7 @@ class WorkflowGenerator {
 
   _buildSecurityWorkflow() {
     const lang = this.primaryLang;
+    const branches = this.extraConfig.branches || ['main', 'master'];
     const steps = [this._stepCheckout()];
 
     if (['JavaScript', 'TypeScript'].includes(lang.name)) {
@@ -476,19 +617,19 @@ class WorkflowGenerator {
     const workflow = {
       name: 'Security Audit',
       on: {
-        push: { branches: ['main', 'master'] },
-        pull_request: { branches: ['main', 'master'] },
+        push: { branches },
+        pull_request: { branches },
         schedule: [{ cron: '0 6 * * 1' }],
+      },
+      permissions: {
+        actions: 'read',
+        contents: 'read',
+        'security-events': 'write',
       },
       jobs: {
         security: {
           name: '🔒 Security Audit',
           'runs-on': 'ubuntu-latest',
-          permissions: {
-            actions: 'read',
-            contents: 'read',
-            'security-events': 'write',
-          },
           steps: steps.filter(Boolean),
         },
       },
@@ -509,7 +650,7 @@ class WorkflowGenerator {
    * Returns setup + cache steps for the given language.
    * v2.0.0: added explicit caching for pip, poetry, cargo, maven, gradle, bundler, go, composer.
    */
-  _setupSteps(lang) {
+  _setupSteps(lang, useMatrix = false) {
     const steps = [];
     const cacheOverride = this.extraConfig.cache || {};
 
@@ -522,7 +663,7 @@ class WorkflowGenerator {
         name: 'Set up Node.js',
         uses: 'actions/setup-node@v4',
         with: {
-          'node-version': lang.nodeVersion || '20',
+          'node-version': useMatrix ? '${{ matrix.node-version }}' : (lang.nodeVersion || '20'),
           // Use native caching in setup-node
           cache: cacheOverride.npm !== false ? (lang.packageManager === 'yarn' ? 'yarn' : lang.packageManager === 'pnpm' ? 'pnpm' : 'npm') : undefined,
         },
@@ -535,7 +676,7 @@ class WorkflowGenerator {
         name: 'Set up Python',
         uses: 'actions/setup-python@v5',
         with: { 
-          'python-version': '3.x',
+          'python-version': useMatrix ? '${{ matrix.python-version }}' : '3.x',
           // Native caching for pip/poetry
           cache: cacheOverride.pip !== false ? (lang.packageManager === 'poetry' ? 'poetry' : 'pip') : undefined
         },
@@ -639,13 +780,13 @@ class WorkflowGenerator {
     return { name: 'Install dependencies', run: 'npm ci' };
   }
 
-  _stepLint(lang) {
+  _stepLint(lang, pkg = null) {
     const pm = lang.packageManager || 'npm';
 
     if (['JavaScript', 'TypeScript'].includes(lang.name)) {
-      const lintScript = this._findScript(['lint', 'lint:ci', 'eslint']);
-      const typeCheck  = this._findScript(['type-check', 'typecheck', 'tsc']);
-      const format     = this._findScript(['format:check', 'prettier:check', 'fmt:check']);
+      const lintScript = this._findScript(['lint', 'lint:ci', 'eslint'], pkg);
+      const typeCheck  = this._findScript(['type-check', 'typecheck', 'tsc'], pkg);
+      const format     = this._findScript(['format:check', 'prettier:check', 'fmt:check'], pkg);
       const runPfx     = pm === 'yarn' ? 'yarn' : pm === 'pnpm' ? 'pnpm' : 'npm run';
 
       const cmds = [];
@@ -657,11 +798,11 @@ class WorkflowGenerator {
       return { name: 'Lint', run: cmds.join('\n') };
     }
 
-    if (lang.name === 'Python') return { name: 'Lint', run: 'pip install flake8 && flake8 .' };
+    if (lang.name === 'Python') return { name: 'Lint', run: 'pip install flake8 black && flake8 . && black --check .' };
     if (lang.name === 'Go')     return { name: 'Lint', run: 'gofmt -d . && go vet ./...' };
     if (lang.name === 'Rust')   return { name: 'Lint', run: 'cargo clippy -- -D warnings && cargo fmt --check' };
     if (lang.name === 'Ruby')   return { name: 'Lint', run: 'gem install rubocop && rubocop' };
-    if (lang.name === 'PHP')    return { name: 'Lint', run: 'vendor/bin/phpcs' };
+    if (lang.name === 'PHP')    return { name: 'Lint', run: 'vendor/bin/phpcs && vendor/bin/phpstan analyze' };
 
     return null;
   }
@@ -670,9 +811,9 @@ class WorkflowGenerator {
     return this.unitTests.map((t) => ({ name: `Run ${t.name}`, run: t.command }));
   }
 
-  _buildSteps(lang) {
+  _buildSteps(lang, pkg = null) {
     const pm = lang.packageManager || 'npm';
-    const buildScript = this._findScript(['build', 'build:prod']);
+    const buildScript = this._findScript(['build', 'build:prod', 'compile'], pkg);
     if (!buildScript && !['Go', 'Rust', 'Java', 'Kotlin'].includes(lang.name)) return [];
 
     const steps = [];
@@ -767,7 +908,8 @@ class WorkflowGenerator {
           },
           {
             name: 'Deploy to Vercel',
-            run: `vercel deploy --prebuilt${prodFlag ? ' ' + prodFlag : ''} --token=\${{ secrets.VERCEL_TOKEN }}`,
+            id: 'deploy',
+            run: `vercel deploy --prebuilt${prodFlag ? ' ' + prodFlag : ''} --token=\${{ secrets.VERCEL_TOKEN }} > deployment_url.txt && echo "DEPLOYMENT_URL=$(cat deployment_url.txt)" >> $GITHUB_ENV`,
             env: vercelEnv,
           },
         );
@@ -780,9 +922,10 @@ class WorkflowGenerator {
         }
         steps.push({
           name: isPreview ? 'Deploy Preview' : 'Deploy to Netlify',
+          id: 'netlify_deploy',
           uses: 'nwtgck/actions-netlify@v3.0',
           with: {
-            'publish-dir': h.publishDir || 'dist',
+            'publish-dir': h.publishDir || (this.frameworks[0] && this.frameworks[0].buildDir) || 'dist',
             'production-branch': 'main',
             'github-token': '${{ secrets.GITHUB_TOKEN }}',
             'deploy-message': isPreview ? 'Preview Deploy – ${{ github.event.number }}' : 'Production Deploy – ${{ github.sha }}',
@@ -796,6 +939,12 @@ class WorkflowGenerator {
             NETLIFY_SITE_ID: '${{ secrets.NETLIFY_SITE_ID }}',
           },
         });
+        if (isPreview) {
+          steps.push({
+            name: 'Set Netlify URL',
+            run: 'echo "DEPLOYMENT_URL=${{ steps.netlify_deploy.outputs.deploy-url }}" >> $GITHUB_ENV'
+          });
+        }
         break;
       }
 
@@ -930,11 +1079,12 @@ class WorkflowGenerator {
     return lang;
   }
 
-  _findScript(names) {
+  _findScript(names, pkg = null) {
     const fs = require('fs');
     const path = require('path');
     try {
-      const raw = JSON.parse(fs.readFileSync(path.join(this.projectPath, 'package.json'), 'utf8'));
+      const pkgPath = pkg ? path.join(this.projectPath, pkg.relativePath, 'package.json') : path.join(this.projectPath, 'package.json');
+      const raw = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
       const scripts = raw.scripts || {};
       for (const n of names) {
         if (scripts[n]) return n;
@@ -972,6 +1122,21 @@ class WorkflowGenerator {
       noRefs: true,
     });
     return header + raw;
+  }
+
+  _getPublicEnv() {
+    const env = {};
+    if (this.envVars && this.envVars.public) {
+      for (const p of this.envVars.public) {
+        const parts = p.split('=');
+        if (parts.length >= 2) {
+          env[parts[0]] = parts.slice(1).join('=');
+        } else {
+          env[p] = `\${{ vars.${p} || secrets.${p} }}`;
+        }
+      }
+    }
+    return env;
   }
 }
 

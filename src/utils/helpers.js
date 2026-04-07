@@ -129,16 +129,17 @@ function _mergeJob(existJob, genJob, jobId) {
     }
   }
 
-  // Merge steps by name
+  // Merge steps
   if (genJob.steps) {
-    const existStepsByName = {};
-    for (const s of (existJob.steps || [])) {
-      if (s.name) existStepsByName[s.name] = s;
-    }
-
     const mergedSteps = [];
     for (const genStep of genJob.steps) {
-      const existStep = existStepsByName[genStep.name];
+      // Find matches by name, uses, or id
+      const existStep = (existJob.steps || []).find(s => 
+        (genStep.name && s.name === genStep.name) ||
+        (genStep.id && s.id === genStep.id) ||
+        (genStep.uses && s.uses === genStep.uses)
+      );
+
       if (!existStep) {
         mergedSteps.push(genStep);
         jobChanges.push(`  job "${jobId}" → added step "${genStep.name}"`);
@@ -153,6 +154,19 @@ function _mergeJob(existJob, genJob, jobId) {
         }
       }
     }
+    // Append any existing steps that were NOT matched by a generated step
+    // This ensures user customizations are preserved.
+    for (const existStep of (existJob.steps || [])) {
+      const isMatched = genJob.steps.some((genStep) => 
+        (genStep.name && existStep.name === genStep.name) ||
+        (genStep.id && existStep.id === genStep.id) ||
+        (genStep.uses && existStep.uses === genStep.uses)
+      );
+      if (!isMatched) {
+        mergedSteps.push(existStep);
+      }
+    }
+    
     merged.steps = mergedSteps;
   }
 

@@ -42,17 +42,16 @@ class CIFlow {
     try {
       // ── 1. Load cistack.config.js ─────────────────────────────────────
       const configLoader = new ConfigLoader(this.projectPath);
-      const userConfig = configLoader.load();
+      const userConfig = await configLoader.load();
       if (Object.keys(userConfig).length > 0) {
         spinner.info(chalk.cyan('cistack.config.js loaded'));
-        spinner.start('Scanning project...');
-        // Allow config to override outputDir
         if (userConfig.outputDir) {
           this.outputDir = path.join(this.projectPath, userConfig.outputDir);
         }
       }
 
       // ── 2. Analyse the codebase ───────────────────────────────────────
+      if (!spinner.isSpinning) spinner.start('Scanning project...');
       const analyzer = new CodebaseAnalyzer(this.projectPath, { verbose: this.verbose });
       const codebaseInfo = await analyzer.analyse();
       spinner.succeed(chalk.green('Project scanned'));
@@ -87,7 +86,7 @@ class CIFlow {
       });
 
       // ── 5. Print summary ───────────────────────────────────────────────
-      this._printSummary(finalConfig, releaseInfo, envVars, monorepoPackages);
+      this._printSummary(finalConfig, finalConfig.releaseInfo || releaseInfo, envVars, monorepoPackages);
 
       // ── 6. Optional interactive confirmation ──────────────────────────
       if (this.prompt) {
@@ -104,10 +103,11 @@ class CIFlow {
       const dependabotGen = new DependabotGenerator(codebaseInfo);
       const dependabotFile = dependabotGen.generate();
 
-      // ── 9. Generate release.yml (if release tooling detected) ─────────
+      // ── 9. Generate release.yml (if release tooling detected or configured) ─
       let releaseWorkflow = null;
-      if (releaseInfo) {
-        const releaseGen = new ReleaseGenerator(releaseInfo, finalConfig, this.projectPath);
+      const combinedReleaseInfo = finalConfig.releaseInfo || releaseInfo;
+      if (combinedReleaseInfo) {
+        const releaseGen = new ReleaseGenerator(combinedReleaseInfo, finalConfig, this.projectPath);
         releaseWorkflow = releaseGen.generate();
         if (releaseWorkflow) workflows.push(releaseWorkflow);
       }
@@ -388,19 +388,15 @@ class CIFlow {
     ensureDir(githubDir);
 
     if (exists && !this.force) {
+      // dependabot.yml has a fixed schema, simpler to just overwrite or keep if identical
       const existing = fs.readFileSync(filePath, 'utf8');
-      const { content: merged, changes } = smartMergeWorkflow(existing, dependabotFile.content);
-
-      if (changes.length === 0) {
+      if (existing.trim() === dependabotFile.content.trim()) {
         console.log(chalk.dim(`  ○ No changes: dependabot.yml`));
         return;
       }
-
-      writeFile(filePath, merged);
-      console.log(chalk.yellow(`  ↻ Smart-merged: dependabot.yml`));
-      for (const c of changes) {
-        console.log(chalk.dim(`    • ${c}`));
-      }
+      
+      writeFile(filePath, dependabotFile.content);
+      console.log(chalk.yellow(`  ↻ Updated: dependabot.yml (schema mismatch for smart-merge)`));
     } else {
       writeFile(filePath, dependabotFile.content);
       console.log(chalk.green(`  ✔ Written:      .github/dependabot.yml`));
