@@ -10,7 +10,12 @@
   "scripts": {
     "start": "node bin/ciflow.js",
     "test": "node tests/run.js",
-    "test:smoke": "node bin/ciflow.js generate --path . --dry-run --no-prompt"
+    "test:smoke": "node bin/ciflow.js generate --path . --dry-run --no-prompt",
+    "site:dev": "npm --prefix product-site run dev",
+    "site:build": "npm --prefix product-site run build:ci",
+    "site:start": "npm --prefix product-site run start",
+    "site:lint": "npm --prefix product-site run lint -- .",
+    "site:typecheck": "npm --prefix product-site run typecheck"
   },
   "keywords": [
     "github-actions",
