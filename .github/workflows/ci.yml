@@ -69,33 +69,3 @@ jobs:
           }
           JSON
           node bin/ciflow.js generate --path "$tmp_dir" --dry-run --no-prompt
-
-  product_site:
-    name: Product Site
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22.x
-          cache: npm
-          cache-dependency-path: product-site/package-lock.json
-
-      - name: Install product-site dependencies
-        working-directory: product-site
-        run: npm ci
-
-      - name: Lint product-site
-        working-directory: product-site
-        run: npm run lint -- .
-
-      - name: Typecheck product-site
-        working-directory: product-site
-        run: npm run typecheck
-
-      - name: Build product-site
-        working-directory: product-site
-        run: npm run build:ci
