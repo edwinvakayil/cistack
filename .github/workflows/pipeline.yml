@@ -30,12 +30,12 @@ jobs:
       CI: 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: npm
@@ -65,12 +65,12 @@ jobs:
       NODE_ENV: production
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: npm
@@ -87,7 +87,7 @@ jobs:
           NODE_ENV: production
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: product-site-build-output
           path: product-site/.next
@@ -103,12 +103,12 @@ jobs:
       github.event_name == 'workflow_dispatch')
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: npm
@@ -173,12 +173,12 @@ jobs:
       && github.event.pull_request.head.repo.full_name == github.repository)
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: npm
@@ -235,7 +235,7 @@ jobs:
 
       - name: Comment PR
         if: always() && github.actor != 'dependabot[bot]'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |-
             const deploymentUrl = process.env.DEPLOYMENT_URL;
