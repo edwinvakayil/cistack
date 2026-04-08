@@ -46,7 +46,14 @@ class TestingDetector {
   _checkJest() {
     let conf = 0;
     if (this.deps['jest'] || this.deps['@jest/core']) conf += 0.5;
-    if (this.configs.has('jest.config.js') || this.configs.has('jest.config.ts')) conf += 0.4;
+    if (this._hasConfig([
+      'jest.config.js',
+      'jest.config.cjs',
+      'jest.config.mjs',
+      'jest.config.ts',
+      'jest.config.cts',
+      'jest.config.mts',
+    ])) conf += 0.4;
     if (this.scripts.test && this.scripts.test.includes('jest')) conf += 0.2;
     return { name: 'Jest', confidence: Math.min(conf, 1), command: this._testScript('jest') || 'npx jest --coverage', type: 'unit' };
   }
@@ -54,21 +61,35 @@ class TestingDetector {
   _checkVitest() {
     let conf = 0;
     if (this.deps['vitest']) conf += 0.6;
-    if (this.configs.has('vitest.config.js') || this.configs.has('vitest.config.ts')) conf += 0.4;
+    if (this._hasConfig([
+      'vitest.config.js',
+      'vitest.config.cjs',
+      'vitest.config.mjs',
+      'vitest.config.ts',
+      'vitest.config.cts',
+      'vitest.config.mts',
+    ])) conf += 0.4;
     return { name: 'Vitest', confidence: Math.min(conf, 1), command: this._testScript('vitest') || 'npx vitest run --coverage', type: 'unit' };
   }
 
   _checkMocha() {
     let conf = 0;
     if (this.deps['mocha']) conf += 0.5;
-    if (this.configs.has('.mocharc.js') || this.configs.has('.mocharc.yml')) conf += 0.4;
+    if (this._hasConfig(['.mocharc.js', '.mocharc.cjs', '.mocharc.mjs', '.mocharc.yml', '.mocharc.yaml', '.mocharc.json'])) conf += 0.4;
     return { name: 'Mocha', confidence: Math.min(conf, 1), command: 'npx mocha', type: 'unit' };
   }
 
   _checkCypress() {
     let conf = 0;
     if (this.deps['cypress']) conf += 0.6;
-    if (this.configs.has('cypress.config.js') || this.configs.has('cypress.config.ts')) conf += 0.4;
+    if (this._hasConfig([
+      'cypress.config.js',
+      'cypress.config.cjs',
+      'cypress.config.mjs',
+      'cypress.config.ts',
+      'cypress.config.cts',
+      'cypress.config.mts',
+    ])) conf += 0.4;
     if (this.files.has('cypress/e2e') || [...this.files].some((f) => f.startsWith('cypress/'))) conf += 0.2;
     return { name: 'Cypress', confidence: Math.min(conf, 1), command: 'npx cypress run', type: 'e2e' };
   }
@@ -76,7 +97,14 @@ class TestingDetector {
   _checkPlaywright() {
     let conf = 0;
     if (this.deps['@playwright/test']) conf += 0.6;
-    if (this.configs.has('playwright.config.js') || this.configs.has('playwright.config.ts')) conf += 0.4;
+    if (this._hasConfig([
+      'playwright.config.js',
+      'playwright.config.cjs',
+      'playwright.config.mjs',
+      'playwright.config.ts',
+      'playwright.config.cts',
+      'playwright.config.mts',
+    ])) conf += 0.4;
     return { name: 'Playwright', confidence: Math.min(conf, 1), command: 'npx playwright test', type: 'e2e' };
   }
 
@@ -147,6 +175,10 @@ class TestingDetector {
     if (this.packageManager === 'pnpm') return `pnpm run ${name}`;
     if (this.packageManager === 'bun') return `bun run ${name}`;
     return `npm run ${name}`;
+  }
+
+  _hasConfig(candidates) {
+    return candidates.some((candidate) => this.configs.has(candidate));
   }
 }
 

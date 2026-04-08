@@ -19,16 +19,16 @@ class FrameworkDetector {
   async detect() {
     const results = [
       // JS / TS frontend
-      this._check('Next.js', ['next'], ['next.config.js', 'next.config.ts', 'next.config.mjs'], { buildDir: '.next', priority: 10 }),
-      this._check('Nuxt', ['nuxt', 'nuxt3'], ['nuxt.config.js', 'nuxt.config.ts'], { buildDir: '.nuxt', priority: 10 }),
-      this._check('SvelteKit', ['@sveltejs/kit'], ['svelte.config.js'], { buildDir: '.svelte-kit', priority: 10 }),
+      this._check('Next.js', ['next'], ['next.config.js', 'next.config.cjs', 'next.config.mjs', 'next.config.ts', 'next.config.cts', 'next.config.mts'], { buildDir: '.next', priority: 10 }),
+      this._check('Nuxt', ['nuxt', 'nuxt3'], ['nuxt.config.js', 'nuxt.config.cjs', 'nuxt.config.mjs', 'nuxt.config.ts', 'nuxt.config.cts', 'nuxt.config.mts'], { buildDir: '.nuxt', priority: 10 }),
+      this._check('SvelteKit', ['@sveltejs/kit'], ['svelte.config.js', 'svelte.config.cjs', 'svelte.config.mjs', 'svelte.config.ts', 'svelte.config.cts', 'svelte.config.mts'], { buildDir: '.svelte-kit', priority: 10 }),
       this._check('Remix', ['@remix-run/react', '@remix-run/node'], [], { priority: 10 }),
-      this._check('Astro', ['astro'], ['astro.config.mjs', 'astro.config.ts'], { buildDir: 'dist', priority: 10 }),
-      this._check('Vite', ['vite'], ['vite.config.js', 'vite.config.ts'], { buildDir: 'dist', priority: 5 }),
+      this._check('Astro', ['astro'], ['astro.config.js', 'astro.config.cjs', 'astro.config.mjs', 'astro.config.ts'], { buildDir: 'dist', priority: 10 }),
+      this._check('Vite', ['vite'], ['vite.config.js', 'vite.config.cjs', 'vite.config.mjs', 'vite.config.ts', 'vite.config.cts', 'vite.config.mts'], { buildDir: 'dist', priority: 5 }),
       this._check('React', ['react', 'react-dom'], [], { buildDir: 'build', priority: 1 }),
       this._check('Vue', ['vue'], [], { buildDir: 'dist', priority: 1 }),
       this._check('Angular', ['@angular/core'], [], { buildDir: 'dist', priority: 1 }),
-      this._check('Svelte', ['svelte'], ['svelte.config.js'], { buildDir: 'public', priority: 1 }),
+      this._check('Svelte', ['svelte'], ['svelte.config.js', 'svelte.config.cjs', 'svelte.config.mjs', 'svelte.config.ts', 'svelte.config.cts', 'svelte.config.mts'], { buildDir: 'public', priority: 1 }),
       this._check('Gatsby', ['gatsby'], [], { buildDir: 'public', priority: 1 }),
       this._check('Ember', ['ember-cli'], [], { priority: 1 }),
       // Node / backend

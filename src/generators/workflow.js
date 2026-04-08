@@ -188,29 +188,6 @@ class WorkflowGenerator {
       };
     }
 
-    // ── lighthouse job ──────────────────────────────────────────────────
-    if (jobs.build && this.frameworks.some(f => ['Next.js', 'React', 'Vue', 'Svelte', 'Nuxt'].includes(f.name))) {
-      jobs.lighthouse = {
-        name: '⚡ Lighthouse Audit',
-        'runs-on': 'ubuntu-latest',
-        needs: ['build'],
-        if: "github.event_name == 'pull_request'",
-        steps: [
-          this._stepCheckout(),
-          {
-            name: 'Run Lighthouse on build output',
-            uses: 'treosh/lighthouse-ci-action@v11',
-            with: {
-              uploadArtifacts: true,
-              temporaryPublicStorage: true,
-              ...this._lighthouseActionConfig(),
-            },
-          },
-        ],
-        'continue-on-error': true,
-      };
-    }
-
     // ── e2e job ───────────────────────────────────────────────────────────
     if (this.e2eTests.length > 0) {
       const e2eTest = this.e2eTests[0];
@@ -338,38 +315,6 @@ class WorkflowGenerator {
         },
       },
     };
-
-    if (buildablePackages.length > 0 && this.frameworks.some(f => ['Next.js', 'React', 'Vue', 'Svelte', 'Nuxt'].includes(f.name))) {
-      workflow.jobs.lighthouse = {
-        name: '⚡ Lighthouse (Root)',
-        'runs-on': 'ubuntu-latest',
-        strategy: {
-          matrix: {
-            include: buildablePackages,
-          },
-        },
-        steps: [
-          this._stepCheckout(),
-          ...this._setupSteps(lang),
-          {
-            ...this._stepInstallDeps(lang),
-          },
-          {
-            name: 'Build workspace',
-            run: this._workspaceRunCommand(lang, '${{ matrix.buildScript }}'),
-          },
-          {
-            name: 'Lighthouse',
-            uses: 'treosh/lighthouse-ci-action@v11',
-            with: {
-              uploadArtifacts: true,
-              temporaryPublicStorage: true,
-            },
-          },
-        ],
-        'continue-on-error': true,
-      };
-    }
 
     return this._toYaml(
       workflow,
@@ -698,11 +643,6 @@ class WorkflowGenerator {
     return steps;
   }
 
-  _lighthouseActionConfig() {
-    const configPath = path.join(this.projectPath, '.lighthouserc.json');
-    return fs.existsSync(configPath) ? { configPath: './.lighthouserc.json' } : {};
-  }
-
   _stepInstallDeps(lang) {
     const pm = lang.packageManager;
     if (pm === 'npm')     return { name: 'Install dependencies', run: this.lockFiles.has('package-lock.json') ? 'npm ci' : 'npm install' };
@@ -890,9 +830,9 @@ class WorkflowGenerator {
           {
             name: 'Validate Vercel credentials',
             run: [
-              'test -n "$VERCEL_TOKEN" || (echo "Missing VERCEL_TOKEN secret. Add it in GitHub Actions secrets." && exit 1)',
-              'test -n "$VERCEL_ORG_ID" || (echo "Missing VERCEL_ORG_ID secret. Add it in GitHub Actions secrets." && exit 1)',
-              'test -n "$VERCEL_PROJECT_ID" || (echo "Missing VERCEL_PROJECT_ID secret. Add it in GitHub Actions secrets." && exit 1)',
+              'test -n "$VERCEL_TOKEN" || (echo "Missing VERCEL_TOKEN secret. Add it in GitHub Actions secrets, or Dependabot secrets for Dependabot PRs." && exit 1)',
+              'test -n "$VERCEL_ORG_ID" || (echo "Missing VERCEL_ORG_ID secret. Add it in GitHub Actions secrets, or Dependabot secrets for Dependabot PRs." && exit 1)',
+              'test -n "$VERCEL_PROJECT_ID" || (echo "Missing VERCEL_PROJECT_ID secret. Add it in GitHub Actions secrets, or Dependabot secrets for Dependabot PRs." && exit 1)',
             ].join('\n'),
             env: vercelEnv,
           },

@@ -151,6 +151,22 @@ test('FrameworkDetector detects Spring Boot from build.gradle.kts', async () => 
   assert(frameworks.some((framework) => framework.name === 'Spring Boot'));
 });
 
+test('FrameworkDetector recognizes modern framework config files like next.config.mjs', async () => {
+  const projectDir = makeTempDir();
+  writeFiles(projectDir, {
+    'package.json': json({
+      name: 'next-config-mjs-app',
+      version: '1.0.0',
+    }),
+    'next.config.mjs': 'export default {};\n',
+  });
+
+  const info = await new CodebaseAnalyzer(projectDir).analyse();
+  const frameworks = await new FrameworkDetector(projectDir, info).detect();
+
+  assert(frameworks.some((framework) => framework.name === 'Next.js'));
+});
+
 test('HostingDetector recognizes Azure pipelines in azure/pipelines.yml', async () => {
   const projectDir = makeTempDir();
   writeFiles(projectDir, {
@@ -272,6 +288,24 @@ test('ReleaseDetector reads release-it CJS config and honors npm.publish false',
   assert.equal(release.tool, 'release-it');
   assert.equal(release.publishToNpm, false);
   assert.equal(release.requiresNpmToken, false);
+});
+
+test('TestingDetector recognizes modern config file extensions like vitest.config.mjs', async () => {
+  const projectDir = makeTempDir();
+  writeFiles(projectDir, {
+    'package.json': json({
+      name: 'modern-vitest-app',
+      version: '1.0.0',
+    }),
+    'vitest.config.mjs': 'export default {};\n',
+  });
+
+  const info = await new CodebaseAnalyzer(projectDir).analyse();
+  const testing = await new TestingDetector(projectDir, info).detect();
+  const vitest = testing.find((entry) => entry.name === 'Vitest');
+
+  assert(vitest);
+  assert(vitest.confidence > 0);
 });
 
 test('bun.lock is recognized as Bun across codebase, testing, and release detection', async () => {
@@ -440,9 +474,9 @@ test('Vercel deploy workflows validate secrets before running vercel pull', () =
   const pullStep = deploySteps.find((step) => step.name === 'Pull Vercel environment');
 
   assert(validateStep);
-  assert(validateStep.run.includes('Missing VERCEL_TOKEN secret'));
-  assert(validateStep.run.includes('Missing VERCEL_ORG_ID secret'));
-  assert(validateStep.run.includes('Missing VERCEL_PROJECT_ID secret'));
+  assert(validateStep.run.includes('Missing VERCEL_TOKEN secret. Add it in GitHub Actions secrets, or Dependabot secrets for Dependabot PRs.'));
+  assert(validateStep.run.includes('Missing VERCEL_ORG_ID secret. Add it in GitHub Actions secrets, or Dependabot secrets for Dependabot PRs.'));
+  assert(validateStep.run.includes('Missing VERCEL_PROJECT_ID secret. Add it in GitHub Actions secrets, or Dependabot secrets for Dependabot PRs.'));
   assert.equal(pullStep.run, 'vercel pull --yes --environment=production --token="$VERCEL_TOKEN"');
 });
 
@@ -492,64 +526,6 @@ test('Frontend Lighthouse is omitted when no build job exists', () => {
   const parsed = parseWorkflow(generator._buildCIWorkflow());
 
   assert(!parsed.jobs.lighthouse);
-});
-
-test('Lighthouse job does not require .lighthouserc.json when the file is absent', () => {
-  const projectDir = makeTempDir();
-  writeFiles(projectDir, {
-    'package.json': json({
-      name: 'lighthouse-default-app',
-      version: '1.0.0',
-      scripts: {
-        build: 'echo build',
-      },
-    }),
-  });
-
-  const generator = new WorkflowGenerator(
-    makeJsProject({
-      frameworks: [{ name: 'React', confidence: 1, buildDir: 'dist' }],
-    }),
-    projectDir
-  );
-
-  const parsed = parseWorkflow(generator._buildCIWorkflow());
-  const lighthouseStep = parsed.jobs.lighthouse.steps.find((step) => step.name === 'Run Lighthouse on build output');
-
-  assert(lighthouseStep);
-  assert(!('configPath' in lighthouseStep.with));
-});
-
-test('Lighthouse job uses .lighthouserc.json when the file exists', () => {
-  const projectDir = makeTempDir();
-  writeFiles(projectDir, {
-    'package.json': json({
-      name: 'lighthouse-config-app',
-      version: '1.0.0',
-      scripts: {
-        build: 'echo build',
-      },
-    }),
-    '.lighthouserc.json': json({
-      ci: {
-        collect: {
-          numberOfRuns: 1,
-        },
-      },
-    }),
-  });
-
-  const generator = new WorkflowGenerator(
-    makeJsProject({
-      frameworks: [{ name: 'React', confidence: 1, buildDir: 'dist' }],
-    }),
-    projectDir
-  );
-
-  const parsed = parseWorkflow(generator._buildCIWorkflow());
-  const lighthouseStep = parsed.jobs.lighthouse.steps.find((step) => step.name === 'Run Lighthouse on build output');
-
-  assert.equal(lighthouseStep.with.configPath, './.lighthouserc.json');
 });
 
 test('E2E jobs fall back to existing jobs instead of depending on a missing build job', () => {
@@ -929,7 +905,6 @@ test('Monorepo root CI installs dependencies at the repo root and does not hide 
   const lintStep = ciSteps.find((step) => step.name === 'Lint');
   const testStep = ciSteps.find((step) => step.name === 'Test');
   const buildStep = ciSteps.find((step) => step.name === 'Build');
-  const lighthouseBuildStep = rootWorkflow.jobs.lighthouse.steps.find((step) => step.name === 'Build workspace');
 
   assert.equal(installStep.run, 'yarn install --frozen-lockfile');
   assert.equal(lintStep.if, '${{ matrix.lintScript != \'\' }}');
@@ -938,7 +913,7 @@ test('Monorepo root CI installs dependencies at the repo root and does not hide 
   assert(!lintStep.run.includes('|| true'));
   assert(!testStep.run.includes('|| true'));
   assert(!buildStep.run.includes('|| true'));
-  assert.equal(lighthouseBuildStep.run, 'yarn workspace ${{ matrix.name }} run ${{ matrix.buildScript }}');
+  assert(!rootWorkflow.jobs.lighthouse);
 });
 
 test('Bun monorepo matrix commands are scoped to the workspace path', () => {
