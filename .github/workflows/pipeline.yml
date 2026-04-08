@@ -97,6 +97,7 @@ jobs:
     name: 🚀 Deploy → Vercel (Production)
     runs-on: ubuntu-latest
     environment: production
+    needs: [ci_build]
     if: >-
       ((github.event_name == 'push' && (github.ref_name == 'main')) || (github.event_name == 'pull_request' &&
       (github.base_ref == 'main')) || github.event_name == 'workflow_dispatch') && (github.event_name == 'push' ||
@@ -167,6 +168,7 @@ jobs:
     name: ✨ Deploy → Vercel (Preview)
     runs-on: ubuntu-latest
     environment: preview
+    needs: [ci_build]
     if: >-
       ((github.event_name == 'push' && (github.ref_name == 'main')) || (github.event_name == 'pull_request' &&
       (github.base_ref == 'main')) || github.event_name == 'workflow_dispatch') && (github.event_name == 'pull_request'

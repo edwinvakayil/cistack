@@ -17,7 +17,7 @@ function getLocale(request: NextRequest) {
   return match(languages, locales, defaultLocale);
 }
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const pathnameHasLocale = locales.some(
     (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
