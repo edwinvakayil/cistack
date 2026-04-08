@@ -37,7 +37,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "chalk": "^4.1.2",
+    "chalk": "^5.6.2",
     "commander": "^11.1.0",
     "glob": "^10.3.10",
     "inquirer": "^8.2.6",
