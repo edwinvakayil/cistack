@@ -1,0 +1,182 @@
+{
+  "navigation": {
+    "version": "VERSIÓN",
+    "status": "Pipelines_Sincronizados",
+    "repository": "Repositorio",
+    "registry": "Registro",
+    "core_manifest": "MANIFESTO_NÚCLEO",
+    "docs": "Docs"
+  },
+  "hero": {
+    "scan_identity": "IDENTIDAD_ESCANEO",
+    "s1_label": "S_01 // MOTOR_INGESTA",
+    "s1_title": "TU STACK",
+    "s2_label": "S_02 // SÍNTESIS_PIPELINE",
+    "s2_title": "TU PIPELINE",
+    "s3_label": "S_03 // VALIDACIÓN_ACCIÓN",
+    "s3_title": "ORQUESTADO",
+    "description": "cistack escanea profundamente tu repositorio para generar instantáneamente flujos de trabajo de GitHub Actions listos para producción en más de 30 frameworks y 12 plataformas.",
+    "npx_command": "npx cistack",
+    "active_installs": "Instalaciones Activas",
+    "per_week": "/ semana",
+    "realtime_synth": "SÍNTESIS_TIEMPO_REAL",
+    "integrations": "Integraciones",
+    "stack_aware": "Compatible Stack",
+    "success_rate": "Tasa de Éxito"
+  },
+  "docs": {
+    "badge": "Especificación Técnica v",
+    "title_part1": "Diseñado para la consistencia.",
+    "title_part2": "Generado para la velocidad.",
+    "description": "cistack escanea profundamente el directorio de tu proyecto para producir YAML de GitHub Actions con calidad de producción. Detecta tu lenguaje, framework, herramientas de prueba y plataforma de hosting — luego escribe el mejor pipeline para tu stack.",
+    "section1_id": "01 / 04",
+    "section1_num": "01. Capacidades",
+    "section1_title": "Análisis y Detección",
+    "capabilities": {
+      "analysis": {
+        "label": "Análisis profundo del código",
+        "sub": "Lee package.json, archivos lock, configs"
+      },
+      "detection": {
+        "label": "Detección inteligente",
+        "sub": "Identifica más de 30 frameworks y 12 lenguajes"
+      },
+      "cache": {
+        "label": "Soporte de Cache nativo",
+        "sub": "Acelera los pipelines para npm, pip, go, cargo y más"
+      },
+      "preview": {
+        "label": "Despliegues PR Preview",
+        "sub": "Entornos automáticos para Vercel y Netlify"
+      },
+      "audit": {
+        "label": "Auditoría y Mejora de Workflow",
+        "sub": "Actualiza versiones de acciones y verifica mejores prácticas"
+      },
+      "hosting": {
+        "label": "Auto-detección de hosting",
+        "sub": "AWS, Vercel, Firebase, Docker y más"
+      },
+      "multi_workflow": {
+        "label": "Salida multi-workflow",
+        "sub": "ci.yml, deploy.yml, docker.yml, security.yml"
+      },
+      "security": {
+        "label": "Seguridad integrada",
+        "sub": "Puntos de control CodeQL + auditoría de dependencias"
+      },
+      "monorepo": {
+        "label": "Compatible con Monorepo",
+        "sub": "Turborepo, Nx, Lerna, pnpm workspaces"
+      },
+      "interactive": {
+        "label": "Modo interactivo",
+        "sub": "Confirma ajustes antes de escribir archivos"
+      },
+      "zero_config": {
+        "label": "Cero config",
+        "sub": "Funciona de inmediato sin necesidad de configuración"
+      }
+    },
+    "section2_num": "02. Activación",
+    "section2_title": "Instalación",
+    "command_registry": "REGISTRO_COMANDOS",
+    "commands": {
+      "audit": "Verifica flujos de trabajo por acciones obsoletas",
+      "upgrade": "Actualiza todas las acciones a las últimas versiones",
+      "init": "Crea un archivo de configuración de anulación"
+    },
+    "recommended_npx": "Recomendado: Usa npx para una generación única.",
+    "parameters_manifest": "MANIFESTO_PARÁMETROS",
+    "flags": {
+      "explain": "Muestra el razonamiento de la stack detectada",
+      "path": "Ruta del directorio objetivo a escanear",
+      "output": "Redefine el directorio de salida del workflow",
+      "dry_run": "Simula la salida sin escribir",
+      "no_prompt": "Omite las verificaciones de seguridad interactivas",
+      "verbose": "Activa el rastreo stdout máximo",
+      "force": "Ignora archivos existentes y sobreescribe"
+    },
+    "detection_logic_title": "Lógica de Detección",
+    "detection_logic_desc": "Disparadores de reconocimiento automático basados en señales del sistema de archivos.",
+    "signal_source": "Fuente de señal:",
+    "framework_coverage": "Cobertura Framework",
+    "testing_tools": "Herramientas de prueba",
+    "section3_num": "03. Artefactos",
+    "section3_title": "Workflows Generados",
+    "workflows": {
+      "ci": {
+        "label": "Integración Continua",
+        "desc": "Se ejecuta en push/PR: Lint (ESLint, type-check TS), Test (matriz versiones Node), Build (producción), y E2E."
+      },
+      "deploy": {
+        "label": "Despliegue Continuo",
+        "desc": "Se activa en main: Despliegue de plataforma con entornos PR Preview automáticos para Vercel y Netlify."
+      },
+      "docker": {
+        "label": "Build y Push Docker",
+        "desc": "Se activa en main/tags: Build multi-plataforma vía Docker Buildx, push GHCR, y cache GitHub Actions."
+      },
+      "security": {
+        "label": "Auditoría de Seguridad",
+        "desc": "Se ejecuta en push/PR/horarios semanales: Análisis de dependencias y auditoría profunda CodeQL para el lenguaje detectado."
+      }
+    },
+    "security_requirement": "Requisito de Seguridad",
+    "encrypted_secrets": "Secretos Cifrados",
+    "add_secrets_at": "Añadir secretos en:",
+    "section4_num": "04. Ejemplos Estructurales",
+    "section4_title": "Escenarios de Stacks Estándar",
+    "validated_output": "Salida Validada"
+  },
+  "footer": {
+    "project_origin": "Origen_Proyecto",
+    "architected_by": "Arquitectado_Por",
+    "status": "Estado",
+    "operational": "Todos los sistemas operativos",
+    "license": "Licencia",
+    "open_source": "Código Abierto",
+    "footer_desc": "Generación automatizada de infraestructura CI/CD para la web moderna. Construido con precisión para desarrolladores que valoran la visibilidad y seguridad en sus pipelines de despliegue.",
+    "global_install": "Instalación_Global",
+    "copyright": "CISTACK ENGINE — TODOS LOS PIPELINES REIFICADOS."
+  },
+  "install_toggle": {
+    "recommended": "recomendado",
+    "npm_global": "npm install -g",
+    "recommended_badge": "Recomendado",
+    "global_badge": "Global",
+    "npx_desc": "Siempre obtiene la última versión. Sin pasos de instalación.",
+    "npm_desc": "Ideal para desarrolladores en múltiples repositorios."
+  },
+  "terminal": {
+    "label": "TERMINAL",
+    "mission": "MISIÓN_NÚCLEO // L_02",
+    "project_scanned": "✔ Proyecto escaneado",
+    "stack_detected": "✔ Stack detectada",
+    "detected_stack": "Stack Detectada",
+    "languages": "Lenguajes:",
+    "frameworks": "Frameworks:",
+    "hosting": "Hosting:",
+    "testing": "Pruebas:",
+    "release_tool": "Herramienta release:",
+    "look_correct": "? ¿Parece correcto? ¿Generar pipeline con estos ajustes? Sí",
+    "generated_workflows": "✔ Generados 3 flujos CI",
+    "smart_merged": "↻ Mezclado inteligente: ci.yml",
+    "updated_on": "actualizado el \"on\" global",
+    "updated_concurrency": "actualizada la \"concurrency\" global",
+    "added_lint": "añadido el job \"lint\"",
+    "updated_build": "job \"build\" → nombre actualizado",
+    "updated_needs": "job \"build\" → needs actualizado",
+    "added_checkout": "job \"build\" → añadida etapa \"Checkout code\"",
+    "added_node": "job \"build\" → añadida etapa \"Set up Node.js\"",
+    "updated_step_build": "job \"build\" → etapa \"Build\" actualizada",
+    "added_upload": "job \"build\" → añadida etapa \"Upload build artifact\"",
+    "written_deploy": "Escrito:      deploy.yml",
+    "written_security": "Escrito:      security.yml",
+    "written_dependabot": "Escrito:      .github/dependabot.yml",
+    "done_msg": "¡Listo! Tu pipeline de GitHub Actions está preparado.",
+    "workflows_path": "Workflows → cistack/.github/workflows",
+    "dependabot_path": "Dependabot → cistack/.github/dependabot.yml",
+    "processing": "Procesando Salida..."
+  }
+}

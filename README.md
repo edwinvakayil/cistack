@@ -28,6 +28,10 @@ npm install -g cistack
 
 `cistack` supports Node.js 16+, and the project itself is continuously verified on Node.js 18, 20, and 22 in GitHub Actions.
 
+## Product site
+
+A standalone Next.js marketing app for the product lives in [product-site](/Users/edwinvs/Desktop/NPM/ciflow/product-site/README.md).
+
 ## CLI Usage
 
 ### Generate workflows
