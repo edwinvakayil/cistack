@@ -138,7 +138,6 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Pull Vercel environment
-        working-directory: product-site
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -146,7 +145,6 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Build project
-        working-directory: product-site
         run: vercel build --prod --token="$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -155,7 +153,6 @@ jobs:
 
       - name: Deploy to Vercel
         id: deploy
-        working-directory: product-site
         run: >-
           vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" > deployment_url.txt && echo "DEPLOYMENT_URL=$(cat
           deployment_url.txt)" >> $GITHUB_ENV
@@ -209,7 +206,6 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Pull Vercel environment
-        working-directory: product-site
         run: vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -217,7 +213,6 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Build project
-        working-directory: product-site
         run: vercel build --token="$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -226,7 +221,6 @@ jobs:
 
       - name: Deploy to Vercel
         id: deploy
-        working-directory: product-site
         run: >-
           vercel deploy --prebuilt --token="$VERCEL_TOKEN" > deployment_url.txt && echo "DEPLOYMENT_URL=$(cat
           deployment_url.txt)" >> $GITHUB_ENV
