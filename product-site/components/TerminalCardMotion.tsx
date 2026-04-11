@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { LazyMotion, domAnimation, m } from "framer-motion";
+import { m } from "framer-motion";
 import { RefreshCcw } from "lucide-react";
 
 import CopyButton from "@/components/CopyButton";
+import { Separator } from "@/components/ui/separator";
 import type { Dictionary } from "@/lib/dictionary-types";
 
 const COMMAND = "npx cistack";
@@ -41,9 +42,11 @@ const lineColor: Record<OutputLine["type"], string> = {
 export default function TerminalCardMotion({
   dict,
   version,
+  copyLabels,
 }: {
   dict: Dictionary["terminal"];
   version: string;
+  copyLabels: { idle: string; success: string };
 }) {
   const [typedCommand, setTypedCommand] = useState("");
   const [visibleLines, setVisibleLines] = useState(0);
@@ -231,34 +234,39 @@ export default function TerminalCardMotion({
   };
 
   return (
-    <LazyMotion features={domAnimation}>
-      <div
-        key={animationKey}
-        className="flex h-[300px] w-full flex-col rounded-sm border border-zinc-100 bg-white sm:h-[350px] lg:h-[380px]"
-      >
-        <div className="flex shrink-0 items-center justify-between border-b border-zinc-100 bg-white px-4 py-3">
+    <div
+      key={animationKey}
+      className="flex h-[300px] w-full flex-col border border-zinc-200 bg-white sm:h-[350px] lg:h-[380px]"
+    >
+        <div className="flex shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4 py-3">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
               <span className="font-mono text-[12px] font-black tracking-[0.18em] text-zinc-600 uppercase">
-                TERMINAL
+                {dict.label}
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-3 rounded-sm border border-zinc-200 bg-zinc-50 px-2.5 py-1">
-              <span className="font-mono text-[13px] font-bold tracking-tight text-zinc-800">
+            <div className="flex items-center gap-0 border border-zinc-200 bg-white">
+              <span className="px-2.5 py-1 font-mono text-[13px] font-bold tracking-tight text-zinc-800">
                 {COMMAND}
               </span>
-              <div className="h-3 w-px bg-zinc-300" />
-              <CopyButton text={COMMAND} variant="terminal" />
+              <Separator orientation="vertical" className="h-6 bg-zinc-200" />
+              <div className="px-2">
+                <CopyButton
+                  text={COMMAND}
+                  idleLabel={copyLabels.idle}
+                  successLabel={copyLabels.success}
+                />
+              </div>
             </div>
             <m.button
               type="button"
               whileTap={{ scale: 0.9 }}
               onClick={handleReplay}
-              className="rounded-sm border border-transparent p-1.5 text-zinc-500 transition-colors hover:border-zinc-200 hover:text-zinc-900"
+              className="border border-transparent p-1.5 text-zinc-500 transition-colors hover:border-zinc-200 hover:text-zinc-900"
               aria-label="Replay terminal animation"
             >
               <RefreshCcw size={14} />
@@ -312,6 +320,5 @@ export default function TerminalCardMotion({
           </div>
         </div>
       </div>
-    </LazyMotion>
   );
 }

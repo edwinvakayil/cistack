@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "sync-i18n": "node scripts/sync-i18n.mjs",
+    "validate:i18n": "node scripts/validate-i18n.mjs",
     "typecheck": "tsc --noEmit --incremental false",
     "build:ci": "next build"
   },

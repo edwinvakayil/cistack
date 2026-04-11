@@ -6,7 +6,7 @@ import type { Dictionary } from "@/lib/dictionary-types";
 
 function TerminalCardFallback({ version, dict }: { version: string; dict: Dictionary["terminal"] }) {
   return (
-    <div className="flex h-[300px] w-full flex-col rounded-sm border border-zinc-200 bg-white sm:h-[350px] lg:h-[380px]">
+    <div className="flex h-[300px] w-full flex-col border border-zinc-200 bg-white sm:h-[350px] lg:h-[380px]">
       <div className="flex shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4 py-3">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -32,9 +32,11 @@ function TerminalCardFallback({ version, dict }: { version: string; dict: Dictio
         </div>
         <div className="space-y-1">
           <div className="font-bold text-zinc-900">cistack v{version}</div>
-          <div>Project scanned</div>
-          <div>Stack detected</div>
-          <div>Detected Stack: Next.js, React, TypeScript</div>
+          <div>{dict.project_scanned}</div>
+          <div>{dict.stack_detected}</div>
+          <div>
+            {dict.detected_stack}: Next.js, React, TypeScript
+          </div>
         </div>
       </div>
     </div>
@@ -44,9 +46,11 @@ function TerminalCardFallback({ version, dict }: { version: string; dict: Dictio
 export default function TerminalCard({
   dict,
   version = "3.0.0",
+  copyLabels,
 }: {
   dict: Dictionary["terminal"];
   version?: string;
+  copyLabels: { idle: string; success: string };
 }) {
   const TerminalCardMotion = useMemo(
     () =>
@@ -57,5 +61,5 @@ export default function TerminalCard({
     [version, dict]
   );
 
-  return <TerminalCardMotion dict={dict} version={version} />;
+  return <TerminalCardMotion dict={dict} version={version} copyLabels={copyLabels} />;
 }

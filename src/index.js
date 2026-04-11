@@ -230,34 +230,33 @@ class CIFlow {
   _printSummary(config, releaseInfo, envVars, monorepoPackages) {
     const { hosting, frameworks, languages, testing } = config;
     const line = (label, value, reasons = []) => {
-      console.log(`  ${chalk.dim(label.padEnd(20))} ${chalk.cyan(value || chalk.italic('none detected'))}`);
+      console.log(`  ${chalk.dim(label.padEnd(20))} ${chalk.cyan(value || chalk.italic('None'))}`);
       if (this.explain && reasons && reasons.length > 0) {
         for (const reason of reasons) {
-          console.log(`    ${chalk.dim('↳')} ${chalk.italic.gray(reason)}`);
+          console.log(`      ${chalk.dim('-')} ${chalk.gray(reason)}`);
         }
       }
     };
 
-    console.log('\n' + chalk.bold('  📊 Detected Stack'));
-    console.log(chalk.dim('  ' + '─'.repeat(48)));
-    
-    line('Languages:',   languages.map((l) => l.name).join(', '), languages[0] && languages[0].reasons);
-    line('Frameworks:',  frameworks.map((f) => f.name).join(', '), frameworks[0] && frameworks[0].reasons);
-    line('Hosting:',     hosting.map((h) => h.name).join(', ') || 'none', hosting[0] && hosting[0].reasons);
-    line('Testing:',     testing.map((t) => t.name).join(', ')  || 'none', testing[0] && testing[0].reasons);
-    line('Release tool:', releaseInfo ? releaseInfo.tool : 'none', releaseInfo && releaseInfo.reasons);
+    console.log('\n' + chalk.bold('  Stack detection summary'));
+
+    line('Languages:', languages.map((l) => l.name).join(', '), languages[0] && languages[0].reasons);
+    line('Frameworks:', frameworks.map((f) => f.name).join(', '), frameworks[0] && frameworks[0].reasons);
+    line('Hosting:', hosting.map((h) => h.name).join(', ') || 'None', hosting[0] && hosting[0].reasons);
+    line('Testing:', testing.map((t) => t.name).join(', ') || 'None', testing[0] && testing[0].reasons);
+    line('Release tool:', releaseInfo ? releaseInfo.tool : 'None', releaseInfo && releaseInfo.reasons);
 
     if (monorepoPackages.length > 0) {
-      line('Monorepo pkgs:', monorepoPackages.map((p) => p.name).join(', '));
+      line('Monorepo packages:', monorepoPackages.map((p) => p.name).join(', '));
     }
 
     if (envVars.sourceFile) {
-      line('Env file:', envVars.sourceFile);
+      line('Environment file:', envVars.sourceFile);
       if (envVars.secrets.length > 0) {
         line('  Secrets:', envVars.secrets.join(', '));
       }
       if (envVars.public.length > 0) {
-        line('  Public vars:', envVars.public.join(', '));
+        line('  Public variables:', envVars.public.join(', '));
       }
     }
 

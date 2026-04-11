@@ -1,33 +1,27 @@
 "use client";
 
+import { AnimatePresence, m, useReducedMotion } from "framer-motion";
+import { Check, Copy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-type CopyButtonVariant = "hero" | "terminal";
+const iconClass = "h-4 w-4 shrink-0";
 
 interface CopyButtonProps {
   text: string;
-  variant?: CopyButtonVariant;
   className?: string;
+  idleLabel?: string;
+  successLabel?: string;
 }
-
-const copyLabels: Record<CopyButtonVariant, { idle: string; success: string }> = {
-  hero: {
-    idle: "COPY",
-    success: "COPIED",
-  },
-  terminal: {
-    idle: "Copy",
-    success: "Copied",
-  },
-};
 
 export default function CopyButton({
   text,
-  variant = "hero",
   className = "",
+  idleLabel = "Copy",
+  successLabel = "Copied",
 }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<number | null>(null);
+  const reduce = useReducedMotion();
 
   useEffect(() => {
     return () => {
@@ -41,45 +35,67 @@ export default function CopyButton({
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-
       if (timeoutRef.current !== null) {
         window.clearTimeout(timeoutRef.current);
       }
-
       timeoutRef.current = window.setTimeout(() => {
         setCopied(false);
       }, 2000);
     } catch (error) {
-      console.error("Unable to copy command", error);
+      console.error("Unable to copy text", error);
     }
   };
 
-  if (variant === "terminal") {
-    return (
-      <button
-        type="button"
-        onClick={handleCopy}
-        className={`text-[12px] font-semibold text-zinc-600 transition-colors hover:text-zinc-900 ${className}`}
-        aria-label="Copy command"
-      >
-        {copied ? copyLabels.terminal.success : copyLabels.terminal.idle}
-      </button>
-    );
-  }
+  const label = copied ? successLabel : idleLabel;
+  const tap = reduce ? {} : { scale: 0.92 };
+  const hover = reduce ? {} : { scale: 1.06 };
 
   return (
-    <button
+    <m.button
       type="button"
       onClick={handleCopy}
-      className={`flex h-auto items-center justify-between gap-6 rounded-sm border border-zinc-800 bg-zinc-950 px-6 py-3.5 text-[14px] text-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all hover:bg-black hover:shadow-zinc-300/50 ${className}`}
-      aria-label="Copy install command"
+      whileTap={tap}
+      whileHover={hover}
+      transition={{ type: "spring", stiffness: 520, damping: 28 }}
+      className={`flex h-9 w-9 shrink-0 items-center justify-center text-zinc-500 transition-colors hover:text-zinc-900 ${className}`}
+      aria-label={label}
+      title={label}
     >
-      <span className="font-mono font-bold tracking-tight text-emerald-400 transition-colors">
-        {text}
+      <span className="relative flex h-4 w-4 items-center justify-center">
+        {reduce ? (
+          copied ? (
+            <Check className={`${iconClass} text-emerald-600`} aria-hidden strokeWidth={2.25} />
+          ) : (
+            <Copy className={iconClass} aria-hidden strokeWidth={2} />
+          )
+        ) : (
+          <AnimatePresence mode="wait" initial={false}>
+            {copied ? (
+              <m.span
+                key="check"
+                initial={{ opacity: 0, scale: 0.35, rotate: -50 }}
+                animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                exit={{ opacity: 0, scale: 0.75 }}
+                transition={{ type: "spring", stiffness: 420, damping: 22 }}
+                className="absolute inset-0 flex items-center justify-center text-emerald-600"
+              >
+                <Check className={iconClass} aria-hidden strokeWidth={2.25} />
+              </m.span>
+            ) : (
+              <m.span
+                key="copy"
+                initial={{ opacity: 0, scale: 0.75 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 flex items-center justify-center"
+              >
+                <Copy className={iconClass} aria-hidden strokeWidth={2} />
+              </m.span>
+            )}
+          </AnimatePresence>
+        )}
       </span>
-      <span className="ml-2 border-l border-zinc-800 pl-6 text-[12px] font-black uppercase tracking-[0.18em] text-zinc-300">
-        {copied ? copyLabels.hero.success : copyLabels.hero.idle}
-      </span>
-    </button>
+    </m.button>
   );
 }

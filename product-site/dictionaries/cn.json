@@ -1,137 +1,276 @@
 {
+  "copy_button": {
+    "idle": "复制",
+    "success": "已复制"
+  },
   "navigation": {
+    "repository": "GitHub",
+    "registry": "npm",
+    "reference": "参考",
     "version": "版本",
-    "status": "流水线_已同步",
-    "repository": "仓库",
-    "registry": "注册表",
-    "core_manifest": "核心_清单",
-    "docs": "文档"
+    "status": "稳定"
   },
   "hero": {
-    "scan_identity": "扫描_身份",
-    "s1_label": "S_01 // 摄取_引擎",
-    "s1_title": "你的技术栈",
-    "s2_label": "S_02 // 流水线_合成",
-    "s2_title": "你的流水线",
-    "s3_label": "S_03 // 执行_确认",
-    "s3_title": "编排完成",
-    "description": "cistack 深度扫描您的代码仓库，为 30 多种框架和 12 个平台即时生成生产就绪的 GitHub Actions 工作流。",
+    "product_name": "cistack",
+    "tagline": "通过分析你已有的代码库，生成 GitHub Actions CI/CD 流水线。",
+    "intro": "cistack 扫描项目、识别技术栈，并写入可用于生产的 GitHub Actions 工作流，覆盖 CI、部署、Docker 与发布。面向真实仓库而非演示：在生成 YAML 前会读取锁文件、框架信号、发布配置、monorepo 工作区、托管配置与 Git 分支元数据。",
     "npx_command": "npx cistack",
-    "active_installs": "活跃安装量",
-    "per_week": "/ 周",
-    "realtime_synth": "实时_合成",
-    "integrations": "集成",
-    "stack_aware": "感应技术栈",
-    "success_rate": "成功率"
+    "weekly_downloads": "周下载量",
+    "per_week": "npm 近一周",
+    "live_registry": "来自 registry 的实时数据"
   },
-  "docs": {
-    "badge": "技术规范 v",
-    "title_part1": "为一致性而设计。",
-    "title_part2": "为速度而生成。",
-    "description": "cistack 对您的项目目录进行深度扫描，以生成具有生产质量的 GitHub Actions YAML。它能检测您的语言、框架、测试工具和托管平台 —— 随后为您的技术栈编写最佳流水线。",
-    "section1_id": "01 / 04",
-    "section1_num": "01. 功能特性",
-    "section1_title": "分析与检测",
-    "capabilities": {
-      "analysis": { "label": "深度代码分析", "sub": "读取 package.json、lock 文件、配置" },
-      "detection": { "label": "智能检测", "sub": "识别 30 多种框架和 12 种语言" },
-      "cache": { "label": "原生缓存支持", "sub": "加速 npm、pip、go、cargo 等流水线" },
-      "preview": { "label": "PR 预览部署", "sub": "为 Vercel 和 Netlify 提供自动环境" },
-      "audit": { "label": "工作流审计与升级", "sub": "升级 Action 版本并验证最佳实践" },
-      "hosting": { "label": "托管平台自动探测", "sub": "AWS、Vercel、Firebase、Docker 等" },
-      "multi_workflow": { "label": "多工作流输出", "sub": "ci.yml、deploy.yml、docker.yml、security.yml" },
-      "security": { "label": "内置安全性", "sub": "CodeQL 检查点 + 依赖关系审计" },
-      "monorepo": { "label": "支持 Monorepo", "sub": "Turborepo、Nx、Lerna、pnpm workspaces" },
-      "interactive": { "label": "交互模式", "sub": "在写入文件前确认设置" },
-      "zero_config": { "label": "零配置", "sub": "无需设置即可开箱即用" }
-    },
-    "section2_num": "02. 激活",
-    "section2_title": "安装",
-    "command_registry": "命令_注册表",
-    "commands": {
-      "audit": "检查工作流中是否有过时的 Action",
-      "upgrade": "将所有 Action 升级到最新版本",
-      "init": "创建一个覆盖配置文件"
-    },
-    "recommended_npx": "推荐：使用 npx 进行单次生成。",
-    "parameters_manifest": "参数_清单",
-    "flags": {
-      "explain": "显示所检测到技术栈的推理过程",
-      "path": "要扫描的目标目录路径",
-      "output": "重新定义工作流输出目录",
-      "dry_run": "模拟输出而不写入",
-      "no_prompt": "跳过交互式安全检查",
-      "verbose": "开启最大 stdout 追踪",
-      "force": "忽略现有文件并覆盖"
-    },
-    "detection_logic_title": "检测逻辑",
-    "detection_logic_desc": "基于文件系统信号的自动识别触发器。",
-    "signal_source": "信号源：",
-    "framework_coverage": "框架覆盖率",
-    "testing_tools": "测试工具",
-    "section3_num": "03. 产物",
-    "section3_title": "生成的工作流",
-    "workflows": {
-      "ci": { "label": "持续集成", "desc": "在 Push/PR 时运行：代码扫描 (ESLint, TS 类型检查)、测试 (Node 版本矩阵)、构建 (生产环境) 和 E2E 测试。" },
-      "deploy": { "label": "持续部署", "desc": "在 Main 分支触发：平台部署，并为 Vercel/Netlify 提供自动 PR 预览环境。" },
-      "docker": { "label": "Docker 构建与推送", "desc": "在 Main/Tags 触发：通过 Docker Buildx 进行多平台构建，推送到 GHCR，并使用 GitHub Actions 缓存。" },
-      "security": { "label": "安全审计", "desc": "在 Push/PR/每周定时运行：对检测到的语言进行依赖项分析和 CodeQL 深度审计。" }
-    },
-    "security_requirement": "安全要求",
-    "encrypted_secrets": "加密密钥 (Secrets)",
-    "add_secrets_at": "在此处添加密钥：",
-    "section4_num": "04. 结构示例",
-    "section4_title": "标准技术栈场景",
-    "validated_output": "已验证输出"
+  "preview": {
+    "title": "运行预览",
+    "caption": "扫描典型项目后的 CLI 动画输出。"
+  },
+  "why": {
+    "title": "为什么选择 cistack",
+    "items": [
+      "自动识别语言、框架、测试工具、托管提供方与发布工具",
+      "在可用时使用仓库默认 Git 分支，而不是假定 main",
+      "支持 monorepo、按包的流水线，以及面向不同包管理器的命令",
+      "生成贴合生态的 Dependabot 配置；存在 bun.lock 时包含 Bun",
+      "将生成的工作流与已有文件智能合并，而非盲目覆盖",
+      "为 Vercel、Netlify、Firebase、GitHub Pages、AWS、Azure、Heroku、Render、Railway 等生成部署流水线",
+      "内置工作流审计与升级命令",
+      "通过 index.d.ts 支持类型化的 cistack.config.js",
+      "具备自动化回归测试，覆盖分支、发布、智能合并、monorepo 脚本与 CLI 冒烟测试"
+    ]
+  },
+  "install": {
+    "title": "安装",
+    "quick_command": "快速安装",
+    "node_note": "cistack 支持 Node.js 16+；项目在 GitHub Actions 中持续针对 Node.js 18、20、22 验证。"
+  },
+  "cli": {
+    "section_title": "CLI 用法",
+    "items": [
+      {
+        "title": "生成工作流",
+        "paragraphs": [
+          "generate 为默认命令，npx cistack 与 npx cistack generate 均可使用。",
+          "常用选项："
+        ],
+        "snippets": [
+          "npx cistack",
+          "npx cistack generate",
+          "npx cistack generate --path /path/to/project",
+          "npx cistack generate --dry-run",
+          "npx cistack generate --explain",
+          "npx cistack generate --output .github/workflows",
+          "npx cistack generate --no-prompt"
+        ]
+      },
+      {
+        "title": "审计已有工作流",
+        "paragraphs": [
+          "检查已生成的工作流目录：并发块缺失、过时的 action、旧版 Node、依赖缓存缺失等。若在 cistack.config.js 中设置了 outputDir，audit 与 upgrade 也会使用该目录。"
+        ],
+        "snippets": ["npx cistack audit"]
+      },
+      {
+        "title": "升级工作流中的 Actions",
+        "paragraphs": [
+          "将已知的 GitHub Actions 更新到当前支持的最新稳定版本。"
+        ],
+        "snippets": ["npx cistack upgrade", "npx cistack upgrade --dry-run"]
+      },
+      {
+        "title": "创建入门配置",
+        "paragraphs": [
+          "写入 cistack.config.js，包含支持的覆盖项键名。"
+        ],
+        "snippets": ["npx cistack init"]
+      }
+    ]
+  },
+  "generated": {
+    "section_title": "会生成什么",
+    "items": [
+      {
+        "title": "pipeline.yml",
+        "paragraphs": [
+          "默认情况下，cistack 生成单个 GitHub Actions 工作流，将 CI、部署、Docker 与发布任务合并在一处，便于团队在同一文件中跟踪整条流水线。",
+          "在检测到相应栈时会包含 lint、测试、构建、E2E、部署、Docker 与发布任务；使用检测到的默认分支或你配置的分支；在同一文件中保留预览部署与发布任务；并在文件头注明所需密钥。"
+        ],
+        "snippets": []
+      },
+      {
+        "title": "dependabot.yml",
+        "paragraphs": [
+          "Dependabot 仍为独立文件 .github/dependabot.yml，因为它不是 GitHub Actions 工作流。",
+          "若要在 Dependabot 拉取请求上做预览部署，请同时将部署凭据配置为 Dependabot 密钥，而不仅是 Actions 密钥。Vercel 需要 VERCEL_TOKEN、VERCEL_ORG_ID、VERCEL_PROJECT_ID。"
+        ],
+        "snippets": []
+      },
+      {
+        "title": "拆分模式",
+        "paragraphs": [
+          "若偏好旧的多文件布局，可在 cistack.config.js 中将 workflowLayout 设为 split。拆分模式下，cistack 会再次分别写入 ci.yml、deploy.yml、docker.yml 与 release.yml。"
+        ],
+        "snippets": [
+          "module.exports = {\n  workflowLayout: 'split',\n};"
+        ]
+      }
+    ]
+  },
+  "detection": {
+    "section_title": "支持的检测能力",
+    "hosting_title": "托管",
+    "hosting_tags": [
+      "Firebase",
+      "Vercel",
+      "Netlify",
+      "GitHub Pages",
+      "AWS",
+      "GCP App Engine",
+      "Azure",
+      "Heroku",
+      "Render",
+      "Railway",
+      "Docker"
+    ],
+    "frameworks_title": "框架",
+    "frameworks_tags": [
+      "Next.js",
+      "Nuxt",
+      "SvelteKit",
+      "Remix",
+      "Astro",
+      "Vite",
+      "React",
+      "Vue",
+      "Angular",
+      "Svelte",
+      "Gatsby",
+      "Express",
+      "Fastify",
+      "NestJS",
+      "Hono",
+      "Koa",
+      "Django",
+      "Flask",
+      "FastAPI",
+      "Rails",
+      "Spring Boot",
+      "Laravel",
+      "Go",
+      "Rust"
+    ],
+    "testing_title": "测试工具",
+    "testing_tags": [
+      "Jest",
+      "Vitest",
+      "Mocha",
+      "Cypress",
+      "Playwright",
+      "Pytest",
+      "RSpec",
+      "Go test",
+      "Cargo test",
+      "PHPUnit",
+      "Maven / JUnit",
+      "Storybook"
+    ]
+  },
+  "configuration": {
+    "section_title": "配置",
+    "intro": "需要覆盖检测结果时，请创建 cistack.config.js。",
+    "example_caption": "示例",
+    "keys_title": "支持的顶层配置键",
+    "keys": [
+      "nodeVersion",
+      "packageManager",
+      "hosting",
+      "frameworks",
+      "testing",
+      "branches",
+      "workflowLayout",
+      "cache",
+      "monorepo",
+      "release",
+      "secrets",
+      "outputDir"
+    ],
+    "branches_title": "分支行为",
+    "branches": [
+      "若在配置中设置了 branches，cistack 将严格使用这些分支",
+      "否则在可用时从 Git 元数据读取仓库默认分支",
+      "若无法获取 Git 元数据，则按工作流类型回退到 main、master、develop 等安全默认值"
+    ],
+    "config_snippet": "/** @type {import('cistack').Config} */\nmodule.exports = {\n  nodeVersion: '20',\n  packageManager: 'pnpm',\n  branches: ['main', 'staging'],\n  workflowLayout: 'single',\n  hosting: ['Vercel'],\n  outputDir: '.github/workflows',\n  cache: {\n    npm: true,\n    cargo: true,\n    pip: true,\n  },\n  monorepo: {\n    perPackage: true,\n  },\n  release: {\n    tool: 'semantic-release',\n  },\n};"
+  },
+  "secrets": {
+    "section_title": "密钥",
+    "body": "生成的部署与发布工作流会在文件顶部说明所需密钥。请在 GitHub：Settings → Secrets and variables → Actions 中添加。"
+  },
+  "quality": {
+    "section_title": "开发与质量",
+    "intro": "项目包含针对历史上易出问题领域的回归测试：",
+    "items": [
+      "配置覆盖处理",
+      "默认分支检测",
+      "部署分支选择",
+      "Netlify 生产分支",
+      "智能合并行为",
+      "monorepo 按包查找构建脚本",
+      "发布配置检测",
+      "发布工作流生成",
+      "CLI dry-run 冒烟测试"
+    ],
+    "commands_title": "在本地运行检查",
+    "commands": [
+      "npm test",
+      "npm run test:smoke",
+      "node bin/ciflow.js audit --path .",
+      "node bin/ciflow.js upgrade --path . --dry-run"
+    ],
+    "repo_note": "使用已发布的 npm 包时，可执行文件名为 cistack。在 cistack 源码仓库中，本地入口为 bin/ciflow.js。"
   },
   "footer": {
-    "project_origin": "项目_起源",
-    "architected_by": "架构设计",
-    "status": "状态",
-    "operational": "所有系统运行正常",
-    "license": "许可证",
-    "open_source": "开源项目",
-    "footer_desc": "为现代 Web 设计的自动化 CI/CD 基础设施生成。为重视部署流水线透明度与安全性的开发者精准打造。",
-    "global_install": "全局_安装",
-    "copyright": "CISTACK ENGINE — 全体流水线已具象化。"
+    "license": "MIT 许可证",
+    "tagline": "从你已有的仓库生成 CI/CD 工作流。",
+    "architect_credit": "作者",
+    "architect_name": "Edwin Vakayil",
+    "copyright_suffix": "cistack。在适用范围内保留所有权利。"
   },
   "install_toggle": {
     "recommended": "推荐",
     "npm_global": "npm install -g",
     "recommended_badge": "推荐",
     "global_badge": "全局",
-    "npx_desc": "始终获取最新版本。无需安装步骤。",
-    "npm_desc": "适合在多个仓库中频繁使用的开发者。"
+    "npx_desc": "始终拉取最新版本，无需全局安装。",
+    "npm_desc": "在多个仓库中使用时更合适。"
   },
   "terminal": {
     "label": "终端",
-    "mission": "核心_使命 // L_02",
-    "project_scanned": "✔ 项目已扫描",
-    "stack_detected": "✔ 技术栈已检测",
-    "detected_stack": "检测到的技术栈",
+    "mission": "核心任务 // L_02",
+    "project_scanned": "✔ 已扫描项目",
+    "stack_detected": "✔ 已识别技术栈",
+    "detected_stack": "识别的技术栈",
     "languages": "语言：",
     "frameworks": "框架：",
     "hosting": "托管：",
     "testing": "测试：",
     "release_tool": "发布工具：",
-    "look_correct": "? 是否正确？按此设置生成流水线？是",
+    "look_correct": "是否正确？使用这些设置生成流水线？是",
     "generated_workflows": "✔ 已生成 3 个 CI 工作流",
     "smart_merged": "↻ 智能合并：ci.yml",
-    "updated_on": "更新了顶级 \"on\" 配置",
-    "updated_concurrency": "更新了顶级 \"concurrency\" 配置",
-    "added_lint": "添加了 \"lint\" 任务",
-    "updated_build": "任务 \"build\" → 更新了名称",
-    "updated_needs": "任务 \"build\" → 更新了依赖 (needs)",
-    "added_checkout": "任务 \"build\" → 添加了 \"获取代码\" 步骤",
-    "added_node": "任务 \"build\" → 添加了 \"设置 Node.js\" 步骤",
-    "updated_step_build": "任务 \"build\" → 更新了 \"构建\" 步骤",
-    "added_upload": "任务 \"build\" → 添加了 \"上传构建产物\" 步骤",
+    "updated_on": "已更新顶层 \"on\"",
+    "updated_concurrency": "已更新顶层 \"concurrency\"",
+    "added_lint": "已添加任务 \"lint\"",
+    "updated_build": "任务 \"build\" → 已更新 \"name\"",
+    "updated_needs": "任务 \"build\" → 已更新 \"needs\"",
+    "added_checkout": "任务 \"build\" → 已添加步骤 \"Checkout code\"",
+    "added_node": "任务 \"build\" → 已添加步骤 \"Set up Node.js\"",
+    "updated_step_build": "任务 \"build\" → 已更新步骤 \"Build\"",
+    "added_upload": "任务 \"build\" → 已添加步骤 \"Upload build artifact\"",
     "written_deploy": "已写入：      deploy.yml",
     "written_security": "已写入：      security.yml",
     "written_dependabot": "已写入：      .github/dependabot.yml",
-    "done_msg": "搞定！您的 GitHub Actions 流水线已准备就绪。",
-    "workflows_path": "工作流路径 → cistack/.github/workflows",
-    "dependabot_path": "Dependabot 路径 → cistack/.github/dependabot.yml",
-    "processing": "正在处理输出..."
+    "done_msg": "完成！你的 GitHub Actions 流水线已就绪。",
+    "workflows_path": "工作流 → cistack/.github/workflows",
+    "dependabot_path": "Dependabot → cistack/.github/dependabot.yml",
+    "processing": "正在处理输出…"
   }
 }

@@ -1,182 +1,276 @@
 {
+  "copy_button": {
+    "idle": "Copiar",
+    "success": "Copiado"
+  },
   "navigation": {
-    "version": "VERSIÓN",
-    "status": "Pipelines_Sincronizados",
-    "repository": "Repositorio",
-    "registry": "Registro",
-    "core_manifest": "MANIFESTO_NÚCLEO",
-    "docs": "Docs"
+    "repository": "GitHub",
+    "registry": "npm",
+    "reference": "Referencia",
+    "version": "Versión",
+    "status": "Estable"
   },
   "hero": {
-    "scan_identity": "IDENTIDAD_ESCANEO",
-    "s1_label": "S_01 // MOTOR_INGESTA",
-    "s1_title": "TU STACK",
-    "s2_label": "S_02 // SÍNTESIS_PIPELINE",
-    "s2_title": "TU PIPELINE",
-    "s3_label": "S_03 // VALIDACIÓN_ACCIÓN",
-    "s3_title": "ORQUESTADO",
-    "description": "cistack escanea profundamente tu repositorio para generar instantáneamente flujos de trabajo de GitHub Actions listos para producción en más de 30 frameworks y 12 plataformas.",
+    "product_name": "cistack",
+    "tagline": "Genera pipelines CI/CD de GitHub Actions analizando el código que ya tienes.",
+    "intro": "cistack analiza tu proyecto, detecta el stack y escribe workflows de GitHub Actions listos para producción: CI, despliegue, Docker y releases. Está pensado para repositorios reales, no demos: lee lockfiles, señales de framework, configuración de release, workspaces monorepo, hosting y metadatos de ramas Git antes de generar el YAML.",
     "npx_command": "npx cistack",
-    "active_installs": "Instalaciones Activas",
-    "per_week": "/ semana",
-    "realtime_synth": "SÍNTESIS_TIEMPO_REAL",
-    "integrations": "Integraciones",
-    "stack_aware": "Compatible Stack",
-    "success_rate": "Tasa de Éxito"
+    "weekly_downloads": "Descargas semanales",
+    "per_week": "última semana en npm",
+    "live_registry": "En vivo desde el registro"
   },
-  "docs": {
-    "badge": "Especificación Técnica v",
-    "title_part1": "Diseñado para la consistencia.",
-    "title_part2": "Generado para la velocidad.",
-    "description": "cistack escanea profundamente el directorio de tu proyecto para producir YAML de GitHub Actions con calidad de producción. Detecta tu lenguaje, framework, herramientas de prueba y plataforma de hosting — luego escribe el mejor pipeline para tu stack.",
-    "section1_id": "01 / 04",
-    "section1_num": "01. Capacidades",
-    "section1_title": "Análisis y Detección",
-    "capabilities": {
-      "analysis": {
-        "label": "Análisis profundo del código",
-        "sub": "Lee package.json, archivos lock, configs"
+  "preview": {
+    "title": "Vista previa",
+    "caption": "Salida CLI animada tras analizar un proyecto típico."
+  },
+  "why": {
+    "title": "Por qué cistack",
+    "items": [
+      "Detecta automáticamente lenguajes, frameworks, herramientas de prueba, proveedores de hosting y herramientas de release",
+      "Usa la rama Git por defecto del repositorio cuando está disponible, en lugar de asumir main",
+      "Admite monorepos, workflows por paquete y comandos según el gestor de paquetes",
+      "Genera configuración Dependabot alineada con el ecosistema, incluido Bun si existe bun.lock",
+      "Fusiona de forma inteligente los workflows generados con los archivos existentes sin sobrescribir a ciegas",
+      "Genera pipelines de despliegue para Vercel, Netlify, Firebase, GitHub Pages, AWS, Azure, Heroku, Render y Railway",
+      "Incluye comandos integrados de auditoría y actualización de workflows",
+      "Admite cistack.config.js tipado mediante index.d.ts",
+      "Apoyado en una suite de regresión automatizada (ramas, release, fusión inteligente, scripts monorepo, pruebas smoke del CLI)"
+    ]
+  },
+  "install": {
+    "title": "Instalación",
+    "quick_command": "Instalación rápida",
+    "node_note": "cistack admite Node.js 16+; el proyecto se verifica de forma continua en Node.js 18, 20 y 22 en GitHub Actions."
+  },
+  "cli": {
+    "section_title": "Uso del CLI",
+    "items": [
+      {
+        "title": "Generar workflows",
+        "paragraphs": [
+          "generate es el comando por defecto: funcionan tanto npx cistack como npx cistack generate.",
+          "Opciones habituales:"
+        ],
+        "snippets": [
+          "npx cistack",
+          "npx cistack generate",
+          "npx cistack generate --path /path/to/project",
+          "npx cistack generate --dry-run",
+          "npx cistack generate --explain",
+          "npx cistack generate --output .github/workflows",
+          "npx cistack generate --no-prompt"
+        ]
       },
-      "detection": {
-        "label": "Detección inteligente",
-        "sub": "Identifica más de 30 frameworks y 12 lenguajes"
+      {
+        "title": "Auditar workflows existentes",
+        "paragraphs": [
+          "Comprueba el directorio de workflows generados (concurrencia ausente, acciones obsoletas, versiones antiguas de Node, caché de dependencias, etc.). Si defines outputDir en cistack.config.js, audit y upgrade usan también ese directorio."
+        ],
+        "snippets": ["npx cistack audit"]
       },
-      "cache": {
-        "label": "Soporte de Cache nativo",
-        "sub": "Acelera los pipelines para npm, pip, go, cargo y más"
+      {
+        "title": "Actualizar acciones del workflow",
+        "paragraphs": [
+          "Actualiza las GitHub Actions conocidas a sus últimas versiones estables admitidas."
+        ],
+        "snippets": ["npx cistack upgrade", "npx cistack upgrade --dry-run"]
       },
-      "preview": {
-        "label": "Despliegues PR Preview",
-        "sub": "Entornos automáticos para Vercel y Netlify"
-      },
-      "audit": {
-        "label": "Auditoría y Mejora de Workflow",
-        "sub": "Actualiza versiones de acciones y verifica mejores prácticas"
-      },
-      "hosting": {
-        "label": "Auto-detección de hosting",
-        "sub": "AWS, Vercel, Firebase, Docker y más"
-      },
-      "multi_workflow": {
-        "label": "Salida multi-workflow",
-        "sub": "ci.yml, deploy.yml, docker.yml, security.yml"
-      },
-      "security": {
-        "label": "Seguridad integrada",
-        "sub": "Puntos de control CodeQL + auditoría de dependencias"
-      },
-      "monorepo": {
-        "label": "Compatible con Monorepo",
-        "sub": "Turborepo, Nx, Lerna, pnpm workspaces"
-      },
-      "interactive": {
-        "label": "Modo interactivo",
-        "sub": "Confirma ajustes antes de escribir archivos"
-      },
-      "zero_config": {
-        "label": "Cero config",
-        "sub": "Funciona de inmediato sin necesidad de configuración"
+      {
+        "title": "Crear configuración inicial",
+        "paragraphs": [
+          "Escribe cistack.config.js con las claves de anulación admitidas."
+        ],
+        "snippets": ["npx cistack init"]
       }
-    },
-    "section2_num": "02. Activación",
-    "section2_title": "Instalación",
-    "command_registry": "REGISTRO_COMANDOS",
-    "commands": {
-      "audit": "Verifica flujos de trabajo por acciones obsoletas",
-      "upgrade": "Actualiza todas las acciones a las últimas versiones",
-      "init": "Crea un archivo de configuración de anulación"
-    },
-    "recommended_npx": "Recomendado: Usa npx para una generación única.",
-    "parameters_manifest": "MANIFESTO_PARÁMETROS",
-    "flags": {
-      "explain": "Muestra el razonamiento de la stack detectada",
-      "path": "Ruta del directorio objetivo a escanear",
-      "output": "Redefine el directorio de salida del workflow",
-      "dry_run": "Simula la salida sin escribir",
-      "no_prompt": "Omite las verificaciones de seguridad interactivas",
-      "verbose": "Activa el rastreo stdout máximo",
-      "force": "Ignora archivos existentes y sobreescribe"
-    },
-    "detection_logic_title": "Lógica de Detección",
-    "detection_logic_desc": "Disparadores de reconocimiento automático basados en señales del sistema de archivos.",
-    "signal_source": "Fuente de señal:",
-    "framework_coverage": "Cobertura Framework",
-    "testing_tools": "Herramientas de prueba",
-    "section3_num": "03. Artefactos",
-    "section3_title": "Workflows Generados",
-    "workflows": {
-      "ci": {
-        "label": "Integración Continua",
-        "desc": "Se ejecuta en push/PR: Lint (ESLint, type-check TS), Test (matriz versiones Node), Build (producción), y E2E."
+    ]
+  },
+  "generated": {
+    "section_title": "Qué se genera",
+    "items": [
+      {
+        "title": "pipeline.yml",
+        "paragraphs": [
+          "Por defecto, cistack genera un único workflow de GitHub Actions que agrupa trabajos de CI, despliegue, Docker y release para seguir todo el pipeline en un solo archivo.",
+          "Incluye lint, test, build, E2E, despliegue, Docker y release cuando el stack lo permite, usa la rama por defecto detectada o la configurada, mantiene despliegues preview y releases en el mismo archivo y documenta los secretos necesarios en la cabecera."
+        ],
+        "snippets": []
       },
-      "deploy": {
-        "label": "Despliegue Continuo",
-        "desc": "Se activa en main: Despliegue de plataforma con entornos PR Preview automáticos para Vercel y Netlify."
+      {
+        "title": "dependabot.yml",
+        "paragraphs": [
+          "Dependabot sigue siendo un archivo separado en .github/dependabot.yml, porque no es un workflow de GitHub Actions.",
+          "Para despliegues preview en PR de Dependabot, añade también las credenciales como secretos de Dependabot, no solo de Actions. En Vercel: VERCEL_TOKEN, VERCEL_ORG_ID y VERCEL_PROJECT_ID."
+        ],
+        "snippets": []
       },
-      "docker": {
-        "label": "Build y Push Docker",
-        "desc": "Se activa en main/tags: Build multi-plataforma vía Docker Buildx, push GHCR, y cache GitHub Actions."
-      },
-      "security": {
-        "label": "Auditoría de Seguridad",
-        "desc": "Se ejecuta en push/PR/horarios semanales: Análisis de dependencias y auditoría profunda CodeQL para el lenguaje detectado."
+      {
+        "title": "Modo dividido (split)",
+        "paragraphs": [
+          "Si prefieres el diseño antiguo de varios archivos, define workflowLayout como split en cistack.config.js. En modo split, cistack vuelve a escribir ci.yml, deploy.yml, docker.yml y release.yml por separado."
+        ],
+        "snippets": [
+          "module.exports = {\n  workflowLayout: 'split',\n};"
+        ]
       }
-    },
-    "security_requirement": "Requisito de Seguridad",
-    "encrypted_secrets": "Secretos Cifrados",
-    "add_secrets_at": "Añadir secretos en:",
-    "section4_num": "04. Ejemplos Estructurales",
-    "section4_title": "Escenarios de Stacks Estándar",
-    "validated_output": "Salida Validada"
+    ]
+  },
+  "detection": {
+    "section_title": "Detección admitida",
+    "hosting_title": "Hosting",
+    "hosting_tags": [
+      "Firebase",
+      "Vercel",
+      "Netlify",
+      "GitHub Pages",
+      "AWS",
+      "GCP App Engine",
+      "Azure",
+      "Heroku",
+      "Render",
+      "Railway",
+      "Docker"
+    ],
+    "frameworks_title": "Frameworks",
+    "frameworks_tags": [
+      "Next.js",
+      "Nuxt",
+      "SvelteKit",
+      "Remix",
+      "Astro",
+      "Vite",
+      "React",
+      "Vue",
+      "Angular",
+      "Svelte",
+      "Gatsby",
+      "Express",
+      "Fastify",
+      "NestJS",
+      "Hono",
+      "Koa",
+      "Django",
+      "Flask",
+      "FastAPI",
+      "Rails",
+      "Spring Boot",
+      "Laravel",
+      "Go",
+      "Rust"
+    ],
+    "testing_title": "Herramientas de prueba",
+    "testing_tags": [
+      "Jest",
+      "Vitest",
+      "Mocha",
+      "Cypress",
+      "Playwright",
+      "Pytest",
+      "RSpec",
+      "Go test",
+      "Cargo test",
+      "PHPUnit",
+      "Maven / JUnit",
+      "Storybook"
+    ]
+  },
+  "configuration": {
+    "section_title": "Configuración",
+    "intro": "Crea cistack.config.js cuando quieras anular la detección.",
+    "example_caption": "Ejemplo",
+    "keys_title": "Claves de configuración de nivel superior",
+    "keys": [
+      "nodeVersion",
+      "packageManager",
+      "hosting",
+      "frameworks",
+      "testing",
+      "branches",
+      "workflowLayout",
+      "cache",
+      "monorepo",
+      "release",
+      "secrets",
+      "outputDir"
+    ],
+    "branches_title": "Comportamiento de ramas",
+    "branches": [
+      "Si branches está definido en la config, cistack lo usa tal cual",
+      "Si no, lee la rama por defecto del repositorio desde los metadatos de Git cuando sea posible",
+      "Si no hay metadatos de Git, usa valores seguros como main, master y develop según el tipo de workflow"
+    ],
+    "config_snippet": "/** @type {import('cistack').Config} */\nmodule.exports = {\n  nodeVersion: '20',\n  packageManager: 'pnpm',\n  branches: ['main', 'staging'],\n  workflowLayout: 'single',\n  hosting: ['Vercel'],\n  outputDir: '.github/workflows',\n  cache: {\n    npm: true,\n    cargo: true,\n    pip: true,\n  },\n  monorepo: {\n    perPackage: true,\n  },\n  release: {\n    tool: 'semantic-release',\n  },\n};"
+  },
+  "secrets": {
+    "section_title": "Secretos",
+    "body": "Los workflows de despliegue y release generados documentan los secretos necesarios al inicio de cada archivo. Añádelos en GitHub: Settings → Secrets and variables → Actions."
+  },
+  "quality": {
+    "section_title": "Desarrollo y calidad",
+    "intro": "El proyecto incluye una suite de regresión en las zonas que históricamente eran más frágiles:",
+    "items": [
+      "manejo de anulaciones de configuración",
+      "detección de la rama por defecto",
+      "selección de la rama de despliegue",
+      "rama de producción en Netlify",
+      "comportamiento de fusión inteligente",
+      "búsqueda de scripts de build por paquete en monorepo",
+      "detección de configuración de release",
+      "generación del workflow de release",
+      "pruebas smoke del CLI en dry-run"
+    ],
+    "commands_title": "Ejecutar comprobaciones en local",
+    "commands": [
+      "npm test",
+      "npm run test:smoke",
+      "node bin/ciflow.js audit --path .",
+      "node bin/ciflow.js upgrade --path . --dry-run"
+    ],
+    "repo_note": "Si usas el paquete publicado, el ejecutable es cistack. En el repositorio de cistack, el punto de entrada local es bin/ciflow.js."
   },
   "footer": {
-    "project_origin": "Origen_Proyecto",
-    "architected_by": "Arquitectado_Por",
-    "status": "Estado",
-    "operational": "Todos los sistemas operativos",
-    "license": "Licencia",
-    "open_source": "Código Abierto",
-    "footer_desc": "Generación automatizada de infraestructura CI/CD para la web moderna. Construido con precisión para desarrolladores que valoran la visibilidad y seguridad en sus pipelines de despliegue.",
-    "global_install": "Instalación_Global",
-    "copyright": "CISTACK ENGINE — TODOS LOS PIPELINES REIFICADOS."
+    "license": "Licencia MIT",
+    "tagline": "Generación de workflows CI/CD a partir del repositorio que ya tienes.",
+    "architect_credit": "Creado por",
+    "architect_name": "Edwin Vakayil",
+    "copyright_suffix": "cistack. Todos los derechos reservados cuando corresponda."
   },
   "install_toggle": {
     "recommended": "recomendado",
     "npm_global": "npm install -g",
     "recommended_badge": "Recomendado",
     "global_badge": "Global",
-    "npx_desc": "Siempre obtiene la última versión. Sin pasos de instalación.",
-    "npm_desc": "Ideal para desarrolladores en múltiples repositorios."
+    "npx_desc": "Siempre obtiene la última versión. Sin instalación global.",
+    "npm_desc": "Ideal si usas cistack en muchos repositorios."
   },
   "terminal": {
     "label": "TERMINAL",
     "mission": "MISIÓN_NÚCLEO // L_02",
-    "project_scanned": "✔ Proyecto escaneado",
-    "stack_detected": "✔ Stack detectada",
-    "detected_stack": "Stack Detectada",
+    "project_scanned": "✔ Proyecto analizado",
+    "stack_detected": "✔ Stack detectado",
+    "detected_stack": "Stack detectado",
     "languages": "Lenguajes:",
     "frameworks": "Frameworks:",
     "hosting": "Hosting:",
     "testing": "Pruebas:",
-    "release_tool": "Herramienta release:",
-    "look_correct": "? ¿Parece correcto? ¿Generar pipeline con estos ajustes? Sí",
-    "generated_workflows": "✔ Generados 3 flujos CI",
-    "smart_merged": "↻ Mezclado inteligente: ci.yml",
-    "updated_on": "actualizado el \"on\" global",
-    "updated_concurrency": "actualizada la \"concurrency\" global",
-    "added_lint": "añadido el job \"lint\"",
-    "updated_build": "job \"build\" → nombre actualizado",
-    "updated_needs": "job \"build\" → needs actualizado",
-    "added_checkout": "job \"build\" → añadida etapa \"Checkout code\"",
-    "added_node": "job \"build\" → añadida etapa \"Set up Node.js\"",
-    "updated_step_build": "job \"build\" → etapa \"Build\" actualizada",
-    "added_upload": "job \"build\" → añadida etapa \"Upload build artifact\"",
+    "release_tool": "Herramienta de release:",
+    "look_correct": "¿Te parece correcto? ¿Generar el pipeline con estos ajustes? Sí",
+    "generated_workflows": "✔ Generados 3 workflow(s) de CI",
+    "smart_merged": "↻ Fusión inteligente: ci.yml",
+    "updated_on": "actualizado \"on\" de nivel superior",
+    "updated_concurrency": "actualizado \"concurrency\" de nivel superior",
+    "added_lint": "añadido job \"lint\"",
+    "updated_build": "job \"build\" → actualizado \"name\"",
+    "updated_needs": "job \"build\" → actualizado \"needs\"",
+    "added_checkout": "job \"build\" → añadido paso \"Checkout code\"",
+    "added_node": "job \"build\" → añadido paso \"Set up Node.js\"",
+    "updated_step_build": "job \"build\" → actualizado paso \"Build\"",
+    "added_upload": "job \"build\" → añadido paso \"Upload build artifact\"",
     "written_deploy": "Escrito:      deploy.yml",
     "written_security": "Escrito:      security.yml",
     "written_dependabot": "Escrito:      .github/dependabot.yml",
-    "done_msg": "¡Listo! Tu pipeline de GitHub Actions está preparado.",
+    "done_msg": "Listo. Tu pipeline de GitHub Actions está preparado.",
     "workflows_path": "Workflows → cistack/.github/workflows",
     "dependabot_path": "Dependabot → cistack/.github/dependabot.yml",
-    "processing": "Procesando Salida..."
+    "processing": "Procesando salida…"
   }
 }
