@@ -2,9 +2,11 @@
 
 import dynamic from "next/dynamic";
 import { useMemo } from "react";
+
+import { terminalDemoPlainText } from "@/components/terminal-demo-content";
 import type { Dictionary } from "@/lib/dictionary-types";
 
-function TerminalCardFallback({ version, dict }: { version: string; dict: Dictionary["terminal"] }) {
+function TerminalCardFallback({ dict }: { dict: Dictionary["terminal"] }) {
   return (
     <div className="flex h-[300px] w-full flex-col border border-zinc-200 bg-white sm:h-[350px] lg:h-[380px]">
       <div className="flex shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4 py-3">
@@ -22,7 +24,7 @@ function TerminalCardFallback({ version, dict }: { version: string; dict: Dictio
       </div>
 
       <div
-        className="flex-1 bg-white p-6 pt-4 font-mono text-[12px] leading-relaxed tracking-tight text-zinc-700 sm:text-[13px]"
+        className="custom-scrollbar flex-1 overflow-y-auto bg-white p-6 pt-4 font-mono text-[12px] leading-relaxed tracking-tight text-zinc-700 sm:text-[13px]"
         style={{ fontFamily: "var(--font-mono)" }}
       >
         <div className="mb-2 flex items-center gap-2">
@@ -30,14 +32,7 @@ function TerminalCardFallback({ version, dict }: { version: string; dict: Dictio
           <span className="font-bold text-zinc-900">npx cistack</span>
           <span className="inline-block h-4 w-1.5 animate-pulse bg-emerald-600" />
         </div>
-        <div className="space-y-1">
-          <div className="font-bold text-zinc-900">cistack v{version}</div>
-          <div>{dict.project_scanned}</div>
-          <div>{dict.stack_detected}</div>
-          <div>
-            {dict.detected_stack}: Next.js, React, TypeScript
-          </div>
-        </div>
+        <pre className="whitespace-pre-wrap break-words text-zinc-700">{terminalDemoPlainText}</pre>
       </div>
     </div>
   );
@@ -56,9 +51,9 @@ export default function TerminalCard({
     () =>
       dynamic(() => import("@/components/TerminalCardMotion"), {
         ssr: false,
-        loading: () => <TerminalCardFallback version={version} dict={dict} />,
+        loading: () => <TerminalCardFallback dict={dict} />,
       }),
-    [version, dict]
+    [dict]
   );
 
   return <TerminalCardMotion dict={dict} version={version} copyLabels={copyLabels} />;

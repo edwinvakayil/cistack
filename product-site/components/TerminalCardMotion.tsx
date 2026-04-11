@@ -5,6 +5,7 @@ import { m } from "framer-motion";
 import { RefreshCcw } from "lucide-react";
 
 import CopyButton from "@/components/CopyButton";
+import { TERMINAL_DEMO_LINES } from "@/components/terminal-demo-content";
 import { Separator } from "@/components/ui/separator";
 import type { Dictionary } from "@/lib/dictionary-types";
 
@@ -17,8 +18,7 @@ interface OutputLine {
     | "info"
     | "heading"
     | "detail"
-    | "merged"
-    | "bullet"
+    | "question"
     | "written"
     | "done"
     | "path"
@@ -30,9 +30,8 @@ const lineColor: Record<OutputLine["type"], string> = {
   success: "text-emerald-500",
   info: "text-zinc-700",
   heading: "font-bold text-zinc-900",
-  detail: "text-zinc-700",
-  merged: "text-amber-500",
-  bullet: "font-medium text-zinc-600",
+  detail: "text-zinc-500",
+  question: "text-zinc-700",
   written: "text-emerald-600",
   done: "font-bold text-zinc-950",
   path: "text-zinc-600",
@@ -41,7 +40,6 @@ const lineColor: Record<OutputLine["type"], string> = {
 
 export default function TerminalCardMotion({
   dict,
-  version,
   copyLabels,
 }: {
   dict: Dictionary["terminal"];
@@ -53,141 +51,7 @@ export default function TerminalCardMotion({
   const [phase, setPhase] = useState<"typing" | "output" | "done">("typing");
   const [animationKey, setAnimationKey] = useState(0);
 
-  const outputLines = useMemo<OutputLine[]>(() => {
-    return [
-      { text: `  cistack v${version}`, type: "heading", delay: 100 },
-      { text: `  ${"─".repeat(24)}`, type: "detail", delay: 200 },
-      { text: "", type: "blank", delay: 250 },
-      { text: dict.project_scanned || "Project scanned", type: "success", delay: 500 },
-      { text: dict.stack_detected || "Stack detected", type: "success", delay: 800 },
-      { text: "", type: "blank", delay: 850 },
-      {
-        text: `  ${dict.detected_stack || "Detected Stack"}`,
-        type: "heading",
-        delay: 1000,
-      },
-      { text: `  ${"─".repeat(48)}`, type: "detail", delay: 1100 },
-      {
-        text: `  ${dict.languages || "Languages:"}           TypeScript`,
-        type: "info",
-        delay: 1300,
-      },
-      {
-        text: `  ${dict.frameworks || "Frameworks:"}          Next.js, React`,
-        type: "info",
-        delay: 1450,
-      },
-      { text: `  ${dict.hosting || "Hosting:"}             Vercel`, type: "info", delay: 1600 },
-      { text: `  ${dict.testing || "Testing:"}             none`, type: "info", delay: 1750 },
-      {
-        text: `  ${dict.release_tool || "Release tool:"}        none`,
-        type: "info",
-        delay: 1900,
-      },
-      { text: "", type: "blank", delay: 1950 },
-      {
-        text:
-          dict.look_correct ||
-          "Does this look correct? Generate pipeline with these settings? Yes",
-        type: "detail",
-        delay: 2200,
-      },
-      {
-        text: dict.generated_workflows || "Generated 3 CI workflow(s)",
-        type: "success",
-        delay: 2600,
-      },
-      {
-        text: `  ${dict.smart_merged || "Smart-merged: ci.yml"}`,
-        type: "merged",
-        delay: 2800,
-      },
-      {
-        text: `    • ${dict.updated_on || 'updated top-level "on"'}`,
-        type: "bullet",
-        delay: 2900,
-      },
-      {
-        text: `    • ${dict.updated_concurrency || 'updated top-level "concurrency"'}`,
-        type: "bullet",
-        delay: 2950,
-      },
-      {
-        text: `    • ${dict.added_lint || 'added job "lint"'}`,
-        type: "bullet",
-        delay: 3000,
-      },
-      {
-        text: `    •   ${dict.updated_build || 'job "build" → updated "name"'}`,
-        type: "bullet",
-        delay: 3050,
-      },
-      {
-        text: `    •   ${dict.updated_needs || 'job "build" → updated "needs"'}`,
-        type: "bullet",
-        delay: 3100,
-      },
-      {
-        text: `    •   ${
-          dict.added_checkout || 'job "build" → added step "Checkout code"'
-        }`,
-        type: "bullet",
-        delay: 3150,
-      },
-      {
-        text: `    •   ${dict.added_node || 'job "build" → added step "Set up Node.js"'}`,
-        type: "bullet",
-        delay: 3200,
-      },
-      {
-        text: `    •   ${dict.updated_step_build || 'job "build" → updated step "Build"'}`,
-        type: "bullet",
-        delay: 3250,
-      },
-      {
-        text: `    •   ${
-          dict.added_upload || 'job "build" → added step "Upload build artifact"'
-        }`,
-        type: "bullet",
-        delay: 3300,
-      },
-      {
-        text: `  ✔ ${dict.written_deploy || "Written:      deploy.yml"}`,
-        type: "written",
-        delay: 3500,
-      },
-      {
-        text: `  ✔ ${dict.written_security || "Written:      security.yml"}`,
-        type: "written",
-        delay: 3650,
-      },
-      {
-        text: `  ✔ ${
-          dict.written_dependabot || "Written:      .github/dependabot.yml"
-        }`,
-        type: "written",
-        delay: 3800,
-      },
-      { text: "", type: "blank", delay: 3850 },
-      {
-        text: `  ${dict.done_msg || "Done! Your GitHub Actions pipeline is ready."}`,
-        type: "done",
-        delay: 4100,
-      },
-      {
-        text: `   ${dict.workflows_path || "Workflows → cistack/.github/workflows"}`,
-        type: "path",
-        delay: 4300,
-      },
-      {
-        text: `   ${
-          dict.dependabot_path || "Dependabot → cistack/.github/dependabot.yml"
-        }`,
-        type: "path",
-        delay: 4450,
-      },
-    ];
-  }, [dict, version]);
+  const outputLines = useMemo<OutputLine[]>(() => [...TERMINAL_DEMO_LINES], []);
 
   useEffect(() => {
     if (phase !== "typing") {
