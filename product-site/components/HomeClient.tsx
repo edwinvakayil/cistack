@@ -181,9 +181,13 @@ const colRight = pad;
 export default function HomeClient({
   dict,
   lang,
+  siteUrl,
+  inLanguage,
 }: {
   dict: Dictionary;
   lang: string;
+  siteUrl: string;
+  inLanguage: string;
 }) {
   const [version, setVersion] = useState("3.0.0");
   const [downloads, setDownloads] = useState("2.4k");
@@ -225,35 +229,67 @@ export default function HomeClient({
   }, []);
 
   const currentYear = new Date().getFullYear();
+  const pageUrl = `${siteUrl.replace(/\/$/, "")}/${lang}`;
+
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": `${pageUrl}#website`,
+        name: dict.hero.product_name,
+        url: pageUrl,
+        inLanguage,
+        description: `${dict.hero.tagline} ${dict.hero.intro}`,
+        publisher: { "@id": `${pageUrl}#organization` },
+      },
+      {
+        "@type": "Organization",
+        "@id": `${pageUrl}#organization`,
+        name: "Edwin Vakayil",
+        url: "https://www.edwinvakayil.info/",
+        sameAs: [
+          "https://github.com/edwinvakayil/cistack",
+          "https://www.npmjs.com/package/cistack",
+        ],
+      },
+      {
+        "@type": "Person",
+        "@id": `${pageUrl}#person`,
+        name: "Edwin Vakayil",
+        url: "https://www.edwinvakayil.info/",
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": `${pageUrl}#software`,
+        name: dict.hero.product_name,
+        operatingSystem: "Any",
+        applicationCategory: "DeveloperApplication",
+        applicationSubCategory: "DeveloperTools",
+        softwareVersion: version,
+        url: pageUrl,
+        downloadUrl: "https://www.npmjs.com/package/cistack",
+        codeRepository: "https://github.com/edwinvakayil/cistack",
+        offers: {
+          "@type": "Offer",
+          price: "0",
+          priceCurrency: "USD",
+          availability: "https://schema.org/InStock",
+        },
+        description: `${dict.hero.tagline} ${dict.hero.intro}`,
+        creator: { "@id": `${pageUrl}#person` },
+        publisher: { "@id": `${pageUrl}#organization` },
+        featureList: dict.why.items,
+      },
+    ],
+  };
 
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "SoftwareApplication",
-            name: "cistack",
-            operatingSystem: "Any",
-            applicationCategory: "DeveloperApplication",
-            softwareVersion: version,
-            offers: {
-              "@type": "Offer",
-              price: "0",
-              priceCurrency: "USD",
-              availability: "https://schema.org/InStock",
-            },
-            description: `${dict.hero.tagline} ${dict.hero.intro}`,
-            creator: {
-              "@type": "Person",
-              name: "Edwin Vakayil",
-              url: "https://www.edwinvakayil.info/",
-            },
-            featureList: dict.why.items,
-            keywords:
-              "github actions, automation, ci/cd, devops, workflow generator, docker, vercel, aws, firebase",
-          }),
+          __html: JSON.stringify(structuredData),
         }}
       />
       <div className="min-h-screen bg-white text-zinc-900 antialiased selection:bg-zinc-900 selection:text-white">

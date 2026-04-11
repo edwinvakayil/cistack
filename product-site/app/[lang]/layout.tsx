@@ -1,5 +1,16 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans, Geist_Mono, Fira_Code } from "next/font/google";
+
+import { getDictionary, hasLocale, type Locale } from "@/lib/dictionaries";
+import {
+  buildLanguageAlternates,
+  getSiteUrl,
+  LOCALES,
+  LOCALE_TO_OPENGRAPH,
+  type SiteLocale,
+} from "@/lib/site-config";
+import { buildMetaDescription, buildPageTitle } from "@/lib/seo";
+
 import "../globals.css";
 
 const dmSans = DM_Sans({
@@ -17,64 +28,109 @@ const firaCode = Fira_Code({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  metadataBase: new URL("https://cistack.edwinvakayil.info"),
-  title: {
-    default: "cistack | Automated GitHub Actions for Your Stack",
-    template: "%s | cistack"
-  },
-  description: "cistack deep-scans your repository to generate production-ready GitHub Actions workflows instantly. Supports 30+ frameworks and 12+ platforms with security-first defaults.",
-  keywords: ["github actions", "automation", "ci/cd", "devops", "workflow generator", "nextjs", "docker", "vercel", "aws", "firebase", "automated testing", "pipeline automation", "github workflow", "devops tools"],
-  authors: [{ name: "Edwin Vakayil", url: "https://www.edwinvakayil.info/" }],
-  creator: "Edwin Vakayil",
-  publisher: "Edwin Vakayil",
-  alternates: {
-    canonical: "/",
-  },
-  openGraph: {
-    title: "cistack | Automated GitHub Actions for Your Stack",
-    description: "Deep-scans your codebase to generate production-grade CI/CD pipelines in seconds. Support for 30+ frameworks.",
-    url: "https://cistack.edwinvakayil.info",
-    siteName: "cistack",
-    images: [
-      {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "cistack - Automated GitHub Actions",
-      },
+const creator = { name: "Edwin Vakayil", url: "https://www.edwinvakayil.info/" };
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}): Promise<Metadata> {
+  const { lang } = await params;
+  if (!hasLocale(lang)) {
+    return {};
+  }
+
+  const locale = lang as SiteLocale;
+  const dict = await getDictionary(locale as Locale);
+  const base = getSiteUrl();
+  const canonical = `${base}/${locale}`;
+  const title = buildPageTitle(dict);
+  const description = buildMetaDescription(dict);
+  const languages = buildLanguageAlternates();
+  const googleVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim();
+
+  return {
+    metadataBase: new URL(base),
+    title: {
+      default: title,
+      template: `%s | ${dict.hero.product_name}`,
+    },
+    description,
+    keywords: [
+      "GitHub Actions",
+      "CI/CD",
+      "DevOps",
+      "workflow generator",
+      "cistack",
+      "automation",
+      "Next.js",
+      "Docker",
+      "Vercel",
+      "AWS",
+      "Firebase",
+      "Dependabot",
+      "pipeline",
     ],
-    locale: "en_US",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "cistack | Professional Workflow Automation",
-    description: "Generate hardened GitHub Actions for any stack instantly. 30+ frameworks supported.",
-    creator: "@edwinvakayil",
-    images: ["/og-image.png"],
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
+    authors: [creator],
+    creator: creator.name,
+    publisher: creator.name,
+    alternates: {
+      canonical,
+      languages,
+    },
+    openGraph: {
+      type: "website",
+      url: canonical,
+      siteName: dict.hero.product_name,
+      title,
+      description,
+      locale: LOCALE_TO_OPENGRAPH[locale],
+      alternateLocale: LOCALES.filter((l) => l !== locale).map((l) => LOCALE_TO_OPENGRAPH[l]),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      creator: "@edwinvakayil",
+    },
+    icons: {
+      icon: [{ url: "/favicon.ico", sizes: "any" }],
+      shortcut: "/favicon.ico",
+    },
+    robots: {
       index: true,
       follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-video-preview": -1,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+      },
     },
-  },
-  category: 'technology',
+    category: "technology",
+    ...(googleVerification
+      ? { verification: { google: googleVerification } }
+      : {}),
+  };
+}
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
+  ],
 };
 
 export async function generateStaticParams() {
-  return [{ lang: 'en' }, { lang: 'fr' }, { lang: 'es' }, { lang: 'pt' }, { lang: 'br' }, { lang: 'de' }, { lang: 'cn' }];
+  return LOCALES.map((lang) => ({ lang }));
 }
 
 export default async function RootLayout({
   children,
-  params
+  params,
 }: {
   children: React.ReactNode;
   params: Promise<{ lang: string }>;
@@ -88,8 +144,10 @@ export default async function RootLayout({
       <head>
         <link rel="preconnect" href="https://registry.npmjs.org" />
         <link rel="preconnect" href="https://api.npmjs.org" />
+        <link rel="dns-prefetch" href="https://github.com" />
+        <link rel="dns-prefetch" href="https://www.npmjs.com" />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );
 }

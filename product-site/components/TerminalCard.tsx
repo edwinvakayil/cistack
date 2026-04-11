@@ -3,10 +3,16 @@
 import dynamic from "next/dynamic";
 import { useMemo } from "react";
 
-import { terminalDemoPlainText } from "@/components/terminal-demo-content";
+import { buildTerminalDemoPlainText } from "@/components/terminal-demo-content";
 import type { Dictionary } from "@/lib/dictionary-types";
 
-function TerminalCardFallback({ dict }: { dict: Dictionary["terminal"] }) {
+function TerminalCardFallback({
+  dict,
+  version,
+}: {
+  dict: Dictionary["terminal"];
+  version: string;
+}) {
   return (
     <div className="flex h-[300px] w-full flex-col border border-zinc-200 bg-white sm:h-[350px] lg:h-[380px]">
       <div className="flex shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4 py-3">
@@ -32,7 +38,9 @@ function TerminalCardFallback({ dict }: { dict: Dictionary["terminal"] }) {
           <span className="font-bold text-zinc-900">npx cistack</span>
           <span className="inline-block h-4 w-1.5 animate-pulse bg-emerald-600" />
         </div>
-        <pre className="whitespace-pre-wrap break-words text-zinc-700">{terminalDemoPlainText}</pre>
+        <pre className="whitespace-pre-wrap break-words text-zinc-700">
+          {buildTerminalDemoPlainText(version)}
+        </pre>
       </div>
     </div>
   );
@@ -51,10 +59,17 @@ export default function TerminalCard({
     () =>
       dynamic(() => import("@/components/TerminalCardMotion"), {
         ssr: false,
-        loading: () => <TerminalCardFallback dict={dict} />,
+        loading: () => <TerminalCardFallback dict={dict} version={version} />,
       }),
-    [dict]
+    [dict, version]
   );
 
-  return <TerminalCardMotion dict={dict} version={version} copyLabels={copyLabels} />;
+  return (
+    <TerminalCardMotion
+      key={version}
+      dict={dict}
+      version={version}
+      copyLabels={copyLabels}
+    />
+  );
 }

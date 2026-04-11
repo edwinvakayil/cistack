@@ -1,20 +1,27 @@
-import { MetadataRoute } from 'next'
+import type { MetadataRoute } from "next";
+
+import { DEFAULT_LOCALE, SITE_URL } from "@/lib/site-config";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'cistack | Automated GitHub Actions',
-    short_name: 'cistack',
-    description: 'Deep-scans your repository to generate production-ready GitHub Actions workflows.',
-    start_url: '/',
-    display: 'standalone',
-    background_color: '#ffffff',
-    theme_color: '#000000',
+    name: "cistack — GitHub Actions CI/CD generator",
+    short_name: "cistack",
+    description:
+      "Scan your repository and generate production-ready GitHub Actions workflows, Dependabot config, and deployment pipelines.",
+    start_url: `/${DEFAULT_LOCALE}`,
+    scope: "/",
+    display: "standalone",
+    orientation: "portrait-primary",
+    background_color: "#ffffff",
+    theme_color: "#09090b",
+    categories: ["developer", "productivity", "utilities"],
+    lang: DEFAULT_LOCALE,
     icons: [
       {
-        src: '/favicon.ico',
-        sizes: 'any',
-        type: 'image/x-icon',
+        src: `${SITE_URL}/favicon.ico`,
+        sizes: "any",
+        type: "image/x-icon",
       },
     ],
-  }
+  };
 }

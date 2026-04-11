@@ -1,12 +1,16 @@
-import { MetadataRoute } from 'next'
+import type { MetadataRoute } from "next";
+
+import { getSiteUrl } from "@/lib/site-config";
 
 export default function robots(): MetadataRoute.Robots {
+  const base = getSiteUrl();
   return {
     rules: {
-      userAgent: '*',
-      allow: '/',
-      disallow: '/private/',
+      userAgent: "*",
+      allow: "/",
+      disallow: ["/private/", "/api/"],
     },
-    sitemap: 'https://cistack.edwinvakayil.info/sitemap.xml',
-  }
+    sitemap: `${base}/sitemap.xml`,
+    host: new URL(base).hostname,
+  };
 }

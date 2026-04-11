@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
-import { getDictionary, hasLocale, Locale } from "@/lib/dictionaries";
+
 import HomeClient from "@/components/HomeClient";
+import { getDictionary, hasLocale, type Locale } from "@/lib/dictionaries";
+import { getSiteUrl, LOCALE_TO_HREFLANG, type SiteLocale } from "@/lib/site-config";
 
 export default async function Page({
   params,
@@ -14,6 +16,15 @@ export default async function Page({
   }
 
   const dict = await getDictionary(lang as Locale);
+  const siteUrl = getSiteUrl();
+  const inLanguage = LOCALE_TO_HREFLANG[lang as SiteLocale];
 
-  return <HomeClient dict={dict} lang={lang as Locale} />;
+  return (
+    <HomeClient
+      dict={dict}
+      lang={lang as Locale}
+      siteUrl={siteUrl}
+      inLanguage={inLanguage}
+    />
+  );
 }

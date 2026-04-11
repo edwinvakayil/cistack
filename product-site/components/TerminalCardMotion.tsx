@@ -5,28 +5,16 @@ import { m } from "framer-motion";
 import { RefreshCcw } from "lucide-react";
 
 import CopyButton from "@/components/CopyButton";
-import { TERMINAL_DEMO_LINES } from "@/components/terminal-demo-content";
+import {
+  buildTerminalDemoLines,
+  type TerminalDemoLine,
+} from "@/components/terminal-demo-content";
 import { Separator } from "@/components/ui/separator";
 import type { Dictionary } from "@/lib/dictionary-types";
 
 const COMMAND = "npx cistack";
 
-interface OutputLine {
-  text: string;
-  type:
-    | "success"
-    | "info"
-    | "heading"
-    | "detail"
-    | "question"
-    | "written"
-    | "done"
-    | "path"
-    | "blank";
-  delay: number;
-}
-
-const lineColor: Record<OutputLine["type"], string> = {
+const lineColor: Record<TerminalDemoLine["type"], string> = {
   success: "text-emerald-500",
   info: "text-zinc-700",
   heading: "font-bold text-zinc-900",
@@ -40,6 +28,7 @@ const lineColor: Record<OutputLine["type"], string> = {
 
 export default function TerminalCardMotion({
   dict,
+  version,
   copyLabels,
 }: {
   dict: Dictionary["terminal"];
@@ -51,7 +40,7 @@ export default function TerminalCardMotion({
   const [phase, setPhase] = useState<"typing" | "output" | "done">("typing");
   const [animationKey, setAnimationKey] = useState(0);
 
-  const outputLines = useMemo<OutputLine[]>(() => [...TERMINAL_DEMO_LINES], []);
+  const outputLines = useMemo(() => buildTerminalDemoLines(version), [version]);
 
   useEffect(() => {
     if (phase !== "typing") {
